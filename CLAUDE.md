@@ -24,3 +24,9 @@
 - Tests use Vitest and React Testing Library
 - Three.js/React Three Fiber for 3D rendering
 - ESLint for code quality with strict rules
+
+## Model Context Protocol (MCP)
+- Documentation: Located in `/docs/mcp-full.txt`
+- Standard for applications to provide context to LLMs
+- Enables integration between LLMs and tools, data sources
+- Key primitives: resources, tools, prompts
