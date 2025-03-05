@@ -46,7 +46,11 @@ export default defineConfig({
             external: [],
             output: {
                 manualChunks: {
-                    'react-vendor': ['react', 'react-dom', 'react/jsx-runtime']
+                    'react-vendor': ['react', 'react-dom', 'react/jsx-runtime'],
+                    'three-core': ['three'],
+                    'three-libs-1': ['@react-three/fiber', '@react-three/drei'],
+                    'three-libs-2': ['@react-three/rapier', '@react-three/xr'],
+                    'ui-libs': ['class-variance-authority', 'tailwind-merge', 'clsx', 'lucide-react'],
                 }
             }
         }
