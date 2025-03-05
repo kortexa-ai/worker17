@@ -6,6 +6,7 @@ import { ThreeContainer } from './ThreeContainer';
 import { Environment, OrbitControls, Box } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import { Worker17 } from './Worker17';
+import { useWebSocket } from '../lib/WebSocketContext';
 
 export const PLOT_SIZE = 20;
 
@@ -15,6 +16,7 @@ export function MainLayout() {
     const [workerPosition, setWorkerPosition] = useState<[number, number, number]>([0, 0, 0]);
     const [workerDirection, setWorkerDirection] = useState<[number, number, number]>([0, 0, 1]);
     const lastAngle = useRef(0);
+    const { workerState, sendMessage } = useWebSocket();
 
     // Toggle walking state periodically for demonstration
     useEffect(() => {
@@ -54,19 +56,53 @@ export function MainLayout() {
                 
                 setWorkerPosition([newX, 0, newZ]);
                 setWorkerDirection([dirX, 0, dirZ]);
+                
+                // Send updated position to server if we have a worker state
+                if (workerState) {
+                    sendMessage({
+                        type: 'stateUpdate',
+                        workerId: workerState.id,
+                        payload: {
+                            ...workerState,
+                            position: { x: newX, y: 0, z: newZ },
+                            rotation: { x: 0, y: angle, z: 0 },
+                            status: isWorkerWalking ? 'working' : 'idle',
+                            timestamp: Date.now()
+                        },
+                        timestamp: Date.now()
+                    });
+                }
             }, 16); // ~60fps for smooth movement
             
             return () => clearInterval(walkInterval);
         }
-    }, [isWorkerWalking, workerPosition]);
+    }, [isWorkerWalking, workerPosition, workerState, sendMessage]);
 
     const handleVideoStream = useCallback((stream?: MediaStream) => {
         setVideoStream(stream);
     }, []);
 
+    // Status indicator in top-right corner
+    const statusIndicator = (
+        <div className="absolute top-4 right-4 p-4 bg-black/70 text-white rounded">
+            <h3 className="text-lg font-bold mb-2">Worker Status</h3>
+            {workerState ? (
+                <div>
+                    <p>ID: {workerState.id}</p>
+                    <p>Status: <span className={`font-bold ${workerState.status === 'idle' ? 'text-blue-400' : workerState.status === 'working' ? 'text-green-400' : workerState.status === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{workerState.status}</span></p>
+                    <p>Battery: <span className={`font-bold ${(workerState.batteryLevel || 0) > 50 ? 'text-green-400' : (workerState.batteryLevel || 0) > 20 ? 'text-yellow-400' : 'text-red-400'}`}>{workerState.batteryLevel || 0}%</span></p>
+                    {workerState.currentTask && <p>Task: {workerState.currentTask}</p>}
+                </div>
+            ) : (
+                <p>No data available</p>
+            )}
+        </div>
+    );
+
     return (
         <SafeViewport>
             <Camera onStreamChange={handleVideoStream} />
+            {statusIndicator}
             <ContainerDimensions className="w-full h-full flex-1 min-h-0">
                 {({ width, height }) => (
                     <ThreeContainer
