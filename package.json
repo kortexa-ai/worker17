@@ -28,6 +28,7 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:ci": "vitest run --coverage --reporter=json --outputFile=build/test-results.json",
+    "inspect": "npx @modelcontextprotocol/inspector",
     "preview": "vite preview"
   },
   "dependencies": {
