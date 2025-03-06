@@ -8,9 +8,6 @@ const wsClient = (ws: WebSocket, _req: Request) => {
         console.log(data);
         ws.send(JSON.stringify({ type: 'ack' }));
     });
-
-    ws.on('close', () => {
-    });
 };
 
 export function setSocketRoutes(wsApp: Instance) {

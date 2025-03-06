@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { WebSocketContext } from './WebSocketContext';
 
 // Define interface for the context state
@@ -23,48 +23,46 @@ const WORKER_ID = 'worker17';
 
 // WebSocket Provider Component
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [workerState, setWorkerState] = useState<WebSocketContextState['workerState']>(null);
   
   // Get WebSocket URL from environment or use default
-  const wsUrl = import.meta.env.VITE_WORKER_SERVER_URL || 'ws://localhost:4000';
+  const wsUrl = import.meta.env.VITE_WORKER_SERVER_URL || 'ws://localhost:4000/ws';
   
-  // Function to send messages to the server
-  const sendMessage = useCallback((message: unknown) => {
-    if (socket && isConnected) {
-      socket.send(JSON.stringify(message));
-    } else {
-      console.warn('Cannot send message, WebSocket is not connected');
-    }
-  }, [socket, isConnected]);
-  
-  // Function to send commands to the worker
-  const sendCommand = useCallback((command: string, parameters?: unknown) => {
-    if (socket && isConnected) {
-      const message = {
-        type: 'command',
-        workerId: WORKER_ID,
-        payload: {
-          command,
-          parameters
-        },
-        timestamp: Date.now()
-      };
-      socket.send(JSON.stringify(message));
-    } else {
-      console.warn('Cannot send command, WebSocket is not connected');
-    }
-  }, [socket, isConnected]);
-  
-  // Initialize WebSocket connection
+  // Use refs to maintain stable references across renders
+  const socketRef = useRef<WebSocket | null>(null);
+  const connectingRef = useRef(false);
+  const reconnectTimeoutRef = useRef<number | null>(null);
+
+  // Create a stable reference to the current workerState for event handlers
+  const workerStateRef = useRef(workerState);
   useEffect(() => {
+    workerStateRef.current = workerState;
+  }, [workerState]);
+  
+  // Setup WebSocket connection
+  const setupWebSocket = useCallback(() => {
+    // Don't create a new connection if we're already connecting or have a connection
+    if (connectingRef.current || (socketRef.current && socketRef.current.readyState < 2)) {
+      return;
+    }
+    
+    // Clear any pending reconnect attempts
+    if (reconnectTimeoutRef.current !== null) {
+      window.clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    // Mark as connecting to prevent duplicate connections
+    connectingRef.current = true;
+    
     // Create a new WebSocket connection
     const newSocket = new WebSocket(wsUrl);
     
     // Setup event handlers
     newSocket.onopen = () => {
       console.log('WebSocket connected');
+      connectingRef.current = false;
       setIsConnected(true);
       
       // Send initial worker identification message
@@ -100,26 +98,27 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         if (message.type === 'command' && message.workerId === WORKER_ID) {
           console.log('Received command:', message.payload.command);
           // Handle commands based on your application needs
-          // For now, just update worker state
-          if (workerState) {
+          const currentWorkerState = workerStateRef.current;
+          
+          if (currentWorkerState) {
             switch (message.payload.command) {
               case 'activate':
                 setWorkerState({
-                  ...workerState,
+                  ...currentWorkerState,
                   active: true,
                   status: 'idle'
                 });
                 break;
               case 'deactivate':
                 setWorkerState({
-                  ...workerState,
+                  ...currentWorkerState,
                   active: false,
                   status: 'offline'
                 });
                 break;
               case 'setTask':
                 setWorkerState({
-                  ...workerState,
+                  ...currentWorkerState,
                   currentTask: message.payload.parameters?.task || 'Unknown task',
                   status: 'working'
                 });
@@ -133,33 +132,101 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       }
     };
     
-    newSocket.onclose = () => {
-      console.log('WebSocket disconnected');
+    newSocket.onclose = (event) => {
+      console.log('WebSocket disconnected', event.code, event.reason);
+      connectingRef.current = false;
       setIsConnected(false);
       
-      // Try to reconnect after 5 seconds
-      setTimeout(() => {
-        console.log('Attempting to reconnect...');
-        // The effect cleanup will handle the old socket
-        // This effect will run again to create a new socket
-      }, 5000);
+      // Clear socket ref if this was our active socket
+      if (socketRef.current === newSocket) {
+        socketRef.current = null;
+      }
+      
+      // Try to reconnect after a delay, if this wasn't an intentional close
+      if (event.code !== 1000) {
+        reconnectTimeoutRef.current = window.setTimeout(() => {
+          console.log('Attempting to reconnect...');
+          reconnectTimeoutRef.current = null;
+          setupWebSocket();
+        }, 5000);
+      }
     };
     
     newSocket.onerror = (error) => {
       console.error('WebSocket error:', error);
+      // Error handling is done in onclose
     };
     
-    // Save the socket in state
-    setSocket(newSocket);
+    // Save the socket in ref
+    socketRef.current = newSocket;
+  }, [wsUrl]);
+  
+  // Function to send messages to the server  
+  const sendMessage = useCallback((message: unknown) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify(message));
+    } else {
+      console.warn('Cannot send message, WebSocket is not connected');
+      
+      // Try to reconnect if socket is closed
+      if (!socketRef.current || socketRef.current.readyState >= 2) {
+        setupWebSocket();
+      }
+    }
+  }, [setupWebSocket]);
+  
+  // Function to send commands to the worker
+  const sendCommand = useCallback((command: string, parameters?: unknown) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      const message = {
+        type: 'command',
+        workerId: WORKER_ID,
+        payload: {
+          command,
+          parameters
+        },
+        timestamp: Date.now()
+      };
+      socketRef.current.send(JSON.stringify(message));
+    } else {
+      console.warn('Cannot send command, WebSocket is not connected');
+      
+      // Try to reconnect if socket is closed
+      if (!socketRef.current || socketRef.current.readyState >= 2) {
+        setupWebSocket();
+      }
+    }
+  }, [setupWebSocket]);
+
+  // Initialize WebSocket connection on mount
+  useEffect(() => {
+    // Initial connection
+    setupWebSocket();
     
     // Clean up the WebSocket on unmount
     return () => {
-      console.log('Closing WebSocket connection');
-      if (newSocket) {
-        newSocket.close();
+      // Clear any reconnection attempts
+      if (reconnectTimeoutRef.current !== null) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
+      // Close the connection if it exists
+      if (socketRef.current) {
+        console.log('Closing WebSocket connection');
+        const socket = socketRef.current;
+        
+        // Mark the connection as manually closed
+        try {
+          socket.close(1000, 'Component unmounting');
+        } catch (err) {
+          console.error('Error closing WebSocket:', err);
+        }
+        
+        socketRef.current = null;
       }
     };
-  }, [wsUrl]); // Only re-run if the URL changes
+  }, []);
   
   // Set up an interval to send periodic updates
   useEffect(() => {
@@ -180,7 +247,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     
     // Send state updates every 5 seconds
     const interval = setInterval(() => {
-      if (socket && isConnected && workerState) {
+      if (isConnected && workerState) {
         // Update battery level (simulate draining)
         const updatedState = { 
           ...workerState,
@@ -202,7 +269,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }, 5000);
     
     return () => clearInterval(interval);
-  }, [isConnected, socket, workerState, sendMessage]);
+  }, [isConnected, workerState, sendMessage]);
   
   return (
     <WebSocketContext.Provider value={{ isConnected, sendMessage, workerState, sendCommand }}>
