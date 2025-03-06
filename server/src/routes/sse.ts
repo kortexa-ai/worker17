@@ -5,7 +5,7 @@ import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
 // Import worker state functions from socket module
-import { terminateWorker, getAllWorkerIds, getWorkerState } from './socket.js';
+import { terminateWorker, getAllWorkerIds, getWorkerState, getCameraImage } from './socket.js';
 
 export function setSseRoutes(app: express.Express) {
     const MCP_SERVER_NAME = process.env.MCP_SERVER_NAME || 'worker17-mcp-server';
@@ -135,6 +135,37 @@ export function setSseRoutes(app: express.Express) {
                     content: [{
                         type: "text",
                         text: `Failed to terminate worker ${workerId}: Worker not connected`
+                    }]
+                };
+            }
+        }
+    );
+    
+    mcpServer.tool(
+        'getCameraImage',
+        'Get the current camera view from a worker',
+        {
+            workerId: z.string().describe('ID of the worker to get image from'),
+        },
+        async (params: unknown) => {
+            const { workerId } = params as { workerId: string };
+            
+            // Request camera image from worker
+            const imageData = await getCameraImage(workerId);
+            
+            if (imageData) {
+                return {
+                    content: [{
+                        type: "image",
+                        data: imageData.replace(/^data:image\/png;base64,/, ''), // Remove data URL prefix for PNG
+                        mimeType: "image/png"
+                    }]
+                };
+            } else {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to get camera image from worker ${workerId}: Worker not connected or image capture failed`
                     }]
                 };
             }

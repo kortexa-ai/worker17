@@ -20,6 +20,10 @@ export interface WebSocketContextState {
     sendCommand: (command: string, parameters?: unknown) => void;
     requestStatus: () => void;
     updateWorkerState: (state: Partial<WebSocketContextState['workerState']>) => void;
+    // Method to capture and return a camera image
+    captureWorkerImage?: () => string;
+    // Method to register a handler for MCP camera image requests
+    handleCameraImageRequest?: (handler: (requestId: string) => void) => void;
 }
 
 // Worker17 ID for this client
@@ -37,6 +41,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const socketRef = useRef<WebSocket | null>(null);
     const connectingRef = useRef(false);
     const reconnectTimeoutRef = useRef<number | null>(null);
+    
+    // Handlers for different message types
+    const handlers = useRef<{
+        handleCameraImageRequest?: (requestId: string) => void;
+    }>({});
 
     // Create a stable reference to the current workerState for event handlers
     const workerStateRef = useRef(workerState);
@@ -157,6 +166,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                         }));
                         
                         console.log('Sent status response with data:', responsePayload);
+                    }
+                } else if (message.type === 'cameraImageRequest' && message.workerId === WORKER_ID) {
+                    console.log('Received camera image request');
+                    // If we have a handler for camera image requests, call it
+                    if (handlers.current.handleCameraImageRequest) {
+                        handlers.current.handleCameraImageRequest(message.requestId);
+                    } else {
+                        console.warn('No camera image request handler registered');
                     }
                 }
             } catch (error) {
@@ -313,6 +330,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
     }, [isConnected, workerState]);
 
+    // We don't need this function as we're using registerCameraImageHandler instead
+    
+    // Set up the handler registration
+    const registerCameraImageHandler = useCallback((handler: (requestId: string) => void) => {
+        handlers.current.handleCameraImageRequest = handler;
+    }, []);
+    
     return (
         <WebSocketContext.Provider value={{ 
             isConnected, 
@@ -320,7 +344,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             workerState, 
             sendCommand, 
             requestStatus,
-            updateWorkerState
+            updateWorkerState,
+            handleCameraImageRequest: registerCameraImageHandler
         }}>
             {children}
         </WebSocketContext.Provider>

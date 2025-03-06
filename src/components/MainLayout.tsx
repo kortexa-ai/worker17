@@ -2,7 +2,7 @@ import { Suspense, useCallback, useState, useEffect, useRef } from 'react';
 import { SafeViewport } from './SafeViewport';
 import { ContainerDimensions } from './ContainerDimensions';
 import { Camera } from './Camera';
-import { ThreeContainer } from './ThreeContainer';
+import { ThreeContainer, type ThreeContainerRef } from './ThreeContainer';
 import { Environment, OrbitControls, Box } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import { Worker17 } from './Worker17';
@@ -20,7 +20,20 @@ export function MainLayout() {
     const [workerDirection, setWorkerDirection] = useState<[number, number, number]>([0, 0, 1]);
     const [isTerminated, setIsTerminated] = useState(false);
     const lastAngle = useRef(0);
-    const { workerState, sendMessage, requestStatus, updateWorkerState } = useWebSocket();
+    const { workerState, sendMessage, requestStatus, updateWorkerState, handleCameraImageRequest } = useWebSocket();
+    
+    // Reference to the Three.js container for screenshots
+    const threeContainerRef = useRef<ThreeContainerRef>(null);
+    
+    // Function to capture the current scene as an image
+    const captureWorkerImage = useCallback(() => {
+        if (threeContainerRef.current) {
+            return threeContainerRef.current.captureScreenshot();
+        }
+        return '';
+    }, []);
+    
+    // We handle the camera image request in the useEffect below
     
     // Local state for UI display
     const [localStatus, setLocalStatus] = useState({
@@ -88,6 +101,31 @@ export function MainLayout() {
     useEffect(() => {
         requestStatus();
     }, [requestStatus]);
+    
+    // Register camera image handler
+    useEffect(() => {
+        if (handleCameraImageRequest) {
+            // Pass the handler function that will be called when a camera image is requested
+            handleCameraImageRequest((requestId: string) => {
+                // Capture the current scene
+                const imageData = captureWorkerImage();
+                
+                // Send the image data back to the server
+                if (imageData) {
+                    sendMessage({
+                        type: 'cameraImageResponse',
+                        requestId,
+                        workerId: 'worker17',
+                        payload: {
+                            image: imageData
+                        },
+                        timestamp: Date.now()
+                    });
+                    console.log('Camera image sent in response to request:', requestId);
+                }
+            });
+        }
+    }, [handleCameraImageRequest, captureWorkerImage, sendMessage]);
     
     // Sync battery level with worker state
     useEffect(() => {
@@ -460,6 +498,7 @@ export function MainLayout() {
             <ContainerDimensions className="w-full h-full flex-1 min-h-0">
                 {({ width, height }) => (
                     <ThreeContainer
+                        ref={threeContainerRef}
                         width={width}
                         height={height}
                         cameraPosition={[8, 8, 8]}

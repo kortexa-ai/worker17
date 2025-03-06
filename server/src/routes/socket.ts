@@ -48,6 +48,64 @@ export const getAllWorkerIds = (): string[] => {
     return Array.from(workerConnections.keys());
 };
 
+// Helper to request a camera image from a worker
+export const getCameraImage = async (workerId: string): Promise<string | undefined> => {
+    return new Promise((resolve) => {
+        const ws = workerConnections.get(workerId);
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            console.log(`Cannot get camera image for worker ${workerId}: not connected`);
+            resolve(undefined);
+            return;
+        }
+        
+        // Generate a unique request ID
+        const requestId = `camera-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Create a one-time message handler for this specific request
+        const handleResponse = (event: WebSocket.MessageEvent) => {
+            try {
+                const data = JSON.parse(event.data.toString());
+                if (data.type === 'cameraImageResponse' && data.requestId === requestId) {
+                    // We got our response, remove the listener
+                    ws.removeEventListener('message', handleResponse);
+                    
+                    // Resolve with the received image data
+                    if (data.payload.image) {
+                        resolve(data.payload.image);
+                    } else if (data.payload.error) {
+                        console.error('Error getting camera image:', data.payload.error);
+                        resolve(undefined);
+                    }
+                }
+            } catch (error) {
+                console.error('Error parsing camera image response:', error);
+                resolve(undefined);
+            }
+        };
+        
+        // Add temporary listener for this specific response
+        ws.addEventListener('message', handleResponse);
+        
+        // Set a timeout to clean up
+        setTimeout(() => {
+            ws.removeEventListener('message', handleResponse);
+            console.log(`Camera image request for worker ${workerId} timed out`);
+            resolve(undefined);
+        }, 10000); // 10 second timeout for image data
+        
+        // Send the camera image request
+        ws.send(JSON.stringify({
+            type: 'cameraImageRequest',
+            workerId,
+            requestId,
+            payload: {},
+            timestamp: Date.now()
+        }));
+        
+        console.log(`Camera image requested for worker: ${workerId}`);
+    });
+};
+
 // Helper to get worker's state directly from the worker
 export const getWorkerState = (workerId: string): Promise<WorkerState | undefined> => {
     return new Promise((resolve) => {
@@ -206,6 +264,82 @@ const wsClient = (ws: WebSocket, _req: Request) => {
                                 id: requestedWorkerId, 
                                 active: false, 
                                 status: 'offline',
+                                timestamp: Date.now()
+                            },
+                            timestamp: Date.now()
+                        }));
+                    }
+                    break;
+                
+                case 'cameraImageRequest':
+                    // MCP tool requesting a camera image from a worker
+                    const targetWorkerId = data.payload?.targetWorkerId || data.workerId;
+                    console.log(`Camera image requested for worker: ${targetWorkerId}`);
+                    
+                    // Get the worker connection
+                    const workerWsCamera = workerConnections.get(targetWorkerId);
+                    
+                    if (workerWsCamera && workerWsCamera.readyState === WebSocket.OPEN) {
+                        // Forward the camera image request to the worker
+                        workerWsCamera.send(JSON.stringify({
+                            type: 'cameraImageRequest',
+                            workerId: targetWorkerId,
+                            requestId: data.requestId,
+                            timestamp: Date.now()
+                        }));
+                        
+                        // Wait for response via one-time listener
+                        const cameraResponsePromise = new Promise<void>((resolve) => {
+                            const responseHandler = (responseMsg: WebSocket.MessageEvent) => {
+                                try {
+                                    const responseData = JSON.parse(responseMsg.data.toString());
+                                    
+                                    // Check if this is the response we're waiting for
+                                    if (responseData.type === 'cameraImageResponse' && 
+                                        responseData.requestId === data.requestId) {
+                                        
+                                        // Forward the response back to the original requester
+                                        ws.send(responseMsg.data.toString());
+                                        resolve();
+                                    }
+                                } catch (error) {
+                                    console.error('Error processing camera image response:', error);
+                                }
+                            };
+                            
+                            // Set up the listener
+                            workerWsCamera.once('message', responseHandler);
+                            
+                            // Set a timeout to clean up and send fallback
+                            setTimeout(() => {
+                                // Remove the listener to avoid memory leaks
+                                workerWsCamera.removeListener('message', responseHandler);
+                                
+                                console.log(`Camera image request for worker ${targetWorkerId} timed out`);
+                                ws.send(JSON.stringify({
+                                    type: 'cameraImageResponse',
+                                    requestId: data.requestId,
+                                    workerId: targetWorkerId,
+                                    payload: { 
+                                        error: 'Request timed out',
+                                        timestamp: Date.now()
+                                    },
+                                    timestamp: Date.now()
+                                }));
+                                resolve();
+                            }, 10000); // Longer timeout for image data
+                        });
+                        
+                        // Wait for the response to be handled
+                        await cameraResponsePromise;
+                    } else {
+                        // Worker is not connected, send error response
+                        ws.send(JSON.stringify({
+                            type: 'cameraImageResponse',
+                            requestId: data.requestId,
+                            workerId: targetWorkerId,
+                            payload: { 
+                                error: 'Worker not connected',
                                 timestamp: Date.now()
                             },
                             timestamp: Date.now()

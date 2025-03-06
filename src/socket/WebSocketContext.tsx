@@ -7,5 +7,7 @@ export const WebSocketContext = createContext<WebSocketContextState>({
   workerState: null,
   sendCommand: () => { },
   requestStatus: () => { },
-  updateWorkerState: () => { }
+  updateWorkerState: () => { },
+  captureWorkerImage: () => '',
+  handleCameraImageRequest: () => { }
 });
