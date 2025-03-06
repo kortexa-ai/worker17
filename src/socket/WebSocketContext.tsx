@@ -5,5 +5,7 @@ export const WebSocketContext = createContext<WebSocketContextState>({
   isConnected: false,
   sendMessage: () => { },
   workerState: null,
-  sendCommand: () => { }
+  sendCommand: () => { },
+  requestStatus: () => { },
+  updateWorkerState: () => { }
 });

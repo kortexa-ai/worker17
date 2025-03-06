@@ -5,7 +5,7 @@ import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
 // Import worker state functions from socket module
-import { terminateWorker, getWorkerState, getAllWorkerStates } from './socket.js';
+import { terminateWorker, getAllWorkerIds, getWorkerState } from './socket.js';
 
 export function setSseRoutes(app: express.Express) {
     const MCP_SERVER_NAME = process.env.MCP_SERVER_NAME || 'worker17-mcp-server';
@@ -23,17 +23,23 @@ export function setSseRoutes(app: express.Express) {
     mcpServer.resource(
         "worker",
         new ResourceTemplate("workers://{workerId}", {
-            list: () => {
-                // Get all active workers from state
-                const workers = getAllWorkerStates();
+            list: async () => {
+                // Get IDs of all connected workers
+                const workerIds = getAllWorkerIds();
+                
+                // Request status for each worker (in parallel)
+                const workerPromises = workerIds.map(id => getWorkerState(id));
+                
+                // Wait for all status requests to complete
+                const workers = await Promise.all(workerPromises);
                 
                 return {
                     resources: workers.map(worker => ({
-                        uri: `workers://${worker.id}`,
-                        name: `Worker ${worker.id}`,
+                        uri: `workers://${worker?.id}`,
+                        name: `Worker ${worker?.id}`,
                         metadata: {
-                            status: worker.status,
-                            batteryLevel: worker.batteryLevel || 0
+                            status: worker?.status,
+                            batteryLevel: worker?.batteryLevel || 0
                         }
                     }))
                 };
@@ -48,7 +54,8 @@ export function setSseRoutes(app: express.Express) {
                 workerIdString = workerId.toString();
             }
 
-            const worker = getWorkerState(workerIdString);
+            // Get fresh status directly from the worker
+            const worker = await getWorkerState(workerIdString);
             
             if (!worker) {
                 return {
@@ -79,7 +86,8 @@ export function setSseRoutes(app: express.Express) {
         },
         async (params: unknown) => {
             const { workerId } = params as { workerId: string };
-            const worker = getWorkerState(workerId);
+            // Get fresh status directly from the worker
+            const worker = await getWorkerState(workerId);
             
             if (!worker) {
                 return {

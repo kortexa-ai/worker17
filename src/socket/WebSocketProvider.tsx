@@ -18,6 +18,8 @@ export interface WebSocketContextState {
         currentTask?: string;
     } | null;
     sendCommand: (command: string, parameters?: unknown) => void;
+    requestStatus: () => void;
+    updateWorkerState: (state: Partial<WebSocketContextState['workerState']>) => void;
 }
 
 // Worker17 ID for this client
@@ -74,21 +76,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                 payload: {},
                 timestamp: Date.now()
             }));
-
-            // Send initial state
-            newSocket.send(JSON.stringify({
-                type: 'stateUpdate',
-                workerId: WORKER_ID,
-                payload: {
-                    id: WORKER_ID,
-                    active: true,
-                    status: 'idle',
-                    position: { x: 0, y: 0, z: 0 },
-                    batteryLevel: 100,
-                    timestamp: Date.now()
-                },
-                timestamp: Date.now()
-            }));
         };
 
         newSocket.onmessage = (event) => {
@@ -133,10 +120,43 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                     status: 'offline',
                                     currentTask: 'Termination in progress'
                                 });
-
                                 break;
                             // Add more command handlers as needed
                         }
+                    }
+                } else if (message.type === 'statusResponse' && message.workerId === WORKER_ID) {
+                    console.log('Received status response:', message.payload);
+                    // Update worker state with the received status
+                    setWorkerState(message.payload);
+                } else if (message.type === 'statusRequest' && message.workerId === WORKER_ID) {
+                    console.log('Received status request, sending current state:', workerStateRef.current);
+                    // Send back our current state - this is the only place we send state updates to server
+                    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+                        // Ensure we're sending the most current data
+                        const currentState = workerStateRef.current || {
+                            id: WORKER_ID,
+                            active: true,
+                            status: 'idle',
+                            batteryLevel: 100,
+                            position: { x: 0, y: 0, z: 0 },
+                            timestamp: Date.now()
+                        };
+                        
+                        // Make sure we're sending fresh data
+                        const responsePayload = {
+                            ...currentState,
+                            timestamp: Date.now()
+                        };
+                        
+                        socketRef.current.send(JSON.stringify({
+                            type: 'statusResponse',
+                            requestId: message.requestId,
+                            workerId: WORKER_ID,
+                            payload: responsePayload,
+                            timestamp: Date.now()
+                        }));
+                        
+                        console.log('Sent status response with data:', responsePayload);
                     }
                 }
             } catch (error) {
@@ -209,6 +229,40 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             }
         }
     }, [setupWebSocket]);
+    
+    // Function to request the latest worker status
+    const requestStatus = useCallback(() => {
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+            const requestId = Date.now().toString();
+            const message = {
+                type: 'statusRequest',
+                workerId: WORKER_ID,
+                requestId,
+                payload: {},
+                timestamp: Date.now()
+            };
+            socketRef.current.send(JSON.stringify(message));
+            console.log('Status request sent');
+        } else {
+            console.warn('Cannot request status, WebSocket is not connected');
+            
+            // Try to reconnect if socket is closed
+            if (!socketRef.current || socketRef.current.readyState >= 2) {
+                setupWebSocket();
+            }
+        }
+    }, [setupWebSocket]);
+    
+    // Function to update worker state locally (no server updates)
+    const updateWorkerState = useCallback((newState: Partial<WebSocketContextState['workerState']>) => {
+        setWorkerState(currentState => {
+            if (!currentState) return null;
+            
+            // Create updated state (local only)
+            const updatedState = { ...(currentState), ...newState };
+            return updatedState;
+        });
+    }, []);
 
     // Initialize WebSocket connection on mount
     useEffect(() => {
@@ -240,7 +294,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         };
     }, [setupWebSocket]);
 
-    // Set up an interval to send periodic updates
+    // Initialize worker state
     useEffect(() => {
         if (!isConnected) return;
 
@@ -255,36 +309,19 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                 currentTask: undefined
             };
             setWorkerState(initialState);
+            // Don't send state update - only respond to requests
         }
-
-        // Send state updates every 5 seconds
-        const interval = setInterval(() => {
-            if (isConnected && workerState) {
-                // Update battery level (simulate draining)
-                const updatedState = {
-                    ...workerState,
-                    batteryLevel: Math.max(0, (workerState.batteryLevel || 100) - 1),
-                    timestamp: Date.now()
-                };
-
-                // Update local state
-                setWorkerState(updatedState);
-
-                // Send updated state to server
-                sendMessage({
-                    type: 'stateUpdate',
-                    workerId: WORKER_ID,
-                    payload: updatedState,
-                    timestamp: Date.now()
-                });
-            }
-        }, 5000);
-
-        return () => clearInterval(interval);
-    }, [isConnected, workerState, sendMessage]);
+    }, [isConnected, workerState]);
 
     return (
-        <WebSocketContext.Provider value={{ isConnected, sendMessage, workerState, sendCommand }}>
+        <WebSocketContext.Provider value={{ 
+            isConnected, 
+            sendMessage, 
+            workerState, 
+            sendCommand, 
+            requestStatus,
+            updateWorkerState
+        }}>
             {children}
         </WebSocketContext.Provider>
     );
