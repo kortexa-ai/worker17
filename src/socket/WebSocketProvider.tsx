@@ -28,7 +28,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [workerState, setWorkerState] = useState<WebSocketContextState['workerState']>(null);
   
   // Get WebSocket URL from environment or use default
-  const wsUrl = import.meta.env.VITE_WORKER_SERVER_URL || 'ws://localhost:3000';
+  const wsUrl = import.meta.env.VITE_WORKER_SERVER_URL || 'ws://localhost:4000';
   
   // Function to send messages to the server
   const sendMessage = useCallback((message: unknown) => {

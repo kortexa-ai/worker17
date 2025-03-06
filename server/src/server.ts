@@ -11,6 +11,8 @@ loadEnv();
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
+const PORT = process.env.PORT || 4000;
+
 const app = express();
 
 app.use(cors(getCorsOptions(nodeEnv)));
@@ -22,8 +24,6 @@ setSseRoutes(app);
 const wsApp = expressWs(app);
 
 setSocketRoutes(wsApp);
-
-const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

@@ -6,15 +6,20 @@ An MCP-enabled 3D Worker Monitoring and Control System
 
 Worker17 is a comprehensive system that allows you to:
 
-1. Monitor worker position and status
-2. Send commands to workers to control their behavior
-3. Use Claude Desktop to monitor and control workers via MCP
+1. Monitor worker 17 position and status
+2. Send tasks to worker 17
+3. Terminate worker 17 due to unsatisfactory performance
+4. Use Claude Desktop to monitor, control, and terminate worker 17 via MCP
 
 The system consists of:
 
-- **Webapp**: A 3D visualization of worker status using React, Three.js, and WebSockets
-- **Server**: A Node.js/Express server with WebSocket support and MCP integration
-- **MCP Integration**: Claude Desktop compatibility for AI-assisted worker management
+- **Webapp**: A 3D visualization of worker 17 status using React, Three.js, and WebSockets
+- **Server**: A Node.js/Express server with WebSocket support and SSE MCP server implementation
+- **MCP Integration**: Claude Desktop compatibility for AI-assisted worker 17 management
+
+## And more seriously?
+
+Worker17 started as a practical joke, and then it turned into an exploration of SSE MCP servers. It's a silly project, but it's also a fun way to learn about MCP.
 
 ## Quick Start
 
@@ -24,91 +29,43 @@ The system consists of:
 # Start the server
 cd server
 npm install
-npm run dev
+npm start
 
 # In another terminal, start the webapp
 npm install
-npm run dev
+npm start
 ```
 
-## Architecture
+### Docker
 
-### WebSocket Communication
+You can also run the system using Docker:
 
-The system uses WebSockets for bidirectional real-time communication:
+```bash
+docker-compose up
+```
 
-- Workers report their status (position, battery, active tasks) to the server
-- Server maintains the current state of all workers
-- Control commands are sent to specific workers
-- MCP server exposes tools to query and control workers
+Note: If you are running docker in WSL without Docker Desktop, there's currently a bug that prevents the ports from being exposed.
+The workaround is to run the container with host network mode. However, this poses potential risk, as it bypasses the networking isolation of the container.
 
-### MCP Integration
+### MCP Inspector
 
-Claude Desktop can connect to the system through MCP to:
+You can use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) to connect to the Worker17 MCP server and inspect the state of the workers. Choose SSE transport and provide the worker17 server URL: `http://localhost:4000/sse` (or whatever is the URL you are running the server on).
 
-1. Get a list of all available workers and their states
-2. Check the status of a specific worker
-3. Send commands to workers (move, stop, activate, etc.)
+### Claude Desktop
 
-#### MCP Tools
+Claude Desktop currently does not support SSE MCP server. To use the Worker17 MCP server, you will need a proxy Stdio MCP server. I've tested this with [mcp-proxy](https://github.com/sparfenyuk/mcp-proxy). You will need to install it as a Windows app and put it in the path. I used Windows binaries for uv which added it to %USERPROFILE%\.local\bin
 
-The following MCP tools are available:
-
-- `get-workers`: Get a list of all workers and their states
-- `get-worker-state`: Get the state of a specific worker by ID
-- `send-command`: Send a command to a worker (move, stop, reset, etc.)
-
-## Using with Claude Desktop
-
-To use Worker17 with Claude Desktop:
-
-1. Install Claude Desktop from https://claude.ai/download
-2. Configure Claude Desktop to use the Worker17 MCP server
-
-### MCP Server Configuration
-
-#### Option 1: STDIO Transport (Local Process)
-
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+Then you can add the worker17 MCP server to Claude Desktop configuration:
 
 ```json
 {
   "mcpServers": {
     "worker17": {
-      "command": "node",
-      "args": [
-        "/path/to/worker17/server/dist/index.js"
-      ],
-      "env": {
-        "PORT": "3001"
-      }
+        "command": "mcp-proxy",
+        "args": ["http://localhost:4000/sse"]
     }
   }
 }
 ```
 
-#### Option 2: SSE Transport (HTTP Connection)
-
-If you're running the Worker17 server separately or want to connect to a remote instance, you can use the SSE (Server-Sent Events) transport.
-
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
-
-```json
-{
-  "mcpServers": {
-    "worker17-sse": {
-      "url": "http://localhost:3001/mcp/sse"
-    }
-  }
-}
-```
-
-Replace `localhost:3001` with the appropriate host and port where your Worker17 server is running.
-
-3. Restart Claude Desktop
-4. Ask Claude to check worker status or send commands
-
-Example prompts for Claude:
-- "Can you check the status of all workers?"
-- "Tell worker17-primary to stop moving."
-- "Set worker17-primary to working on task 'Clean sector 7'"
+Make sure the server is up and running before you start Claude Desktop.

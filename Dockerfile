@@ -22,7 +22,7 @@ RUN npm run build
 RUN cd server && npm run build
 
 # Expose ports
-EXPOSE 3000
+EXPOSE 4000
 EXPOSE 8000
 
 # Command to run

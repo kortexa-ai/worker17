@@ -8,7 +8,7 @@ services:
         container_name: worker17-dev
         network_mode: "host"
 #        ports:
-#            - "3000:3000" # Server port
+#            - "4000:4000" # Server port
 #            - "8000:8000" # Webapp port
         volumes:
             - ./:/app
