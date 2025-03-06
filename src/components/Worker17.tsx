@@ -9,12 +9,14 @@ interface Worker17Props {
     position?: [number, number, number];
     isWalking?: boolean;
     direction?: [number, number, number];
+    isTerminated?: boolean;
 }
 
 export function Worker17({ 
     position = [0, 0, 0], 
     isWalking = false,
-    direction
+    direction,
+    isTerminated = false
 }: Worker17Props) {
     const group = useRef(null);
     const { scene, animations } = useGLTF(workerModelPath);
@@ -27,19 +29,32 @@ export function Worker17({
         console.log('Available animations:', names);
     }, [names]);
 
-    // Play the appropriate animation based on isWalking prop
+    // Play the appropriate animation based on state
     useEffect(() => {
         // Fade out all current animations
         Object.values(actions).forEach(action => action?.fadeOut(0.5));
         
-        // Choose animation based on walking state
-        const animationName = isWalking 
-            ? AnimationNames.Walk // Change this if your walking animation has a different name
-            : AnimationNames.Idle;
+        // Choose animation based on state
+        let animationName;
+        if (isTerminated) {
+            // Use sprint animation for termination run
+            animationName = AnimationNames.Sprint;
+        } else if (isWalking) {
+            // Normal walking animation
+            animationName = AnimationNames.Walk;
+        } else {
+            // Idle animation
+            animationName = AnimationNames.Idle;
+        }
         
         // Play the selected animation if it exists
         if (actions[animationName]) {
-            actions[animationName].reset().fadeIn(0.5).play();
+            // Speed up animation if terminated
+            const action = actions[animationName]?.reset().fadeIn(0.5);
+            if (isTerminated) {
+                action?.setEffectiveTimeScale(1.5); // Make sprint faster
+            }
+            action?.play();
         } else {
             console.warn(`Animation "${animationName}" not found in model. Available animations:`, names);
         }
@@ -47,7 +62,7 @@ export function Worker17({
         return () => {
             Object.values(actions).forEach(action => action?.fadeOut(0.5));
         };
-    }, [actions, isWalking, names]);
+    }, [actions, isWalking, isTerminated, names]);
 
     // Calculate and apply rotation based on movement direction
     useFrame(() => {
