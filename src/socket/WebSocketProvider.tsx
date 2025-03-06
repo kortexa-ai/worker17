@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { WebSocketContext } from './WebSocketContext';
 
+export type WorkerStatus = 'idle' | 'working' | 'error' | 'offline';
+
 // Define interface for the context state
 export interface WebSocketContextState {
   isConnected: boolean;
@@ -9,7 +11,7 @@ export interface WebSocketContextState {
   workerState: {
     id: string;
     active: boolean;
-    status: 'idle' | 'working' | 'error' | 'offline';
+    status: WorkerStatus;
     position?: { x: number; y: number; z: number };
     rotation?: { x: number; y: number; z: number };
     batteryLevel?: number;
@@ -123,6 +125,20 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                   status: 'working'
                 });
                 break;
+              case 'terminate':
+                console.log('Received terminate command! Worker is being terminated');
+                setWorkerState({
+                  ...currentWorkerState,
+                  active: false,
+                  status: 'offline',
+                  currentTask: 'Termination in progress'
+                });
+                
+                // Show an alert or notification to the user
+                setTimeout(() => {
+                  alert('This worker has been terminated by the server!');
+                }, 500);
+                break;
               // Add more command handlers as needed
             }
           }
@@ -226,7 +242,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         socketRef.current = null;
       }
     };
-  }, []);
+  }, [setupWebSocket]);
   
   // Set up an interval to send periodic updates
   useEffect(() => {
@@ -237,7 +253,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       const initialState = {
         id: WORKER_ID,
         active: true,
-        status: 'idle',
+        status: 'idle' as WorkerStatus,
         position: { x: 0, y: 0, z: 0 },
         batteryLevel: 100,
         currentTask: undefined

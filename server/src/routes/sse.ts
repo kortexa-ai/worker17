@@ -4,6 +4,9 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
+// Import worker state functions from socket module
+import { terminateWorker, getWorkerState, getAllWorkerStates } from './socket.js';
+
 export function setSseRoutes(app: express.Express) {
     const MCP_SERVER_NAME = process.env.MCP_SERVER_NAME || 'worker17-mcp-server';
 
@@ -21,22 +24,51 @@ export function setSseRoutes(app: express.Express) {
         "worker",
         new ResourceTemplate("workers://{workerId}", {
             list: () => {
+                // Get all active workers from state
+                const workers = getAllWorkerStates();
+                
                 return {
-                    resources: [
-                        {
-                            uri: "workers://worker17",
-                            name: "Worker 17"
+                    resources: workers.map(worker => ({
+                        uri: `workers://${worker.id}`,
+                        name: `Worker ${worker.id}`,
+                        metadata: {
+                            status: worker.status,
+                            batteryLevel: worker.batteryLevel || 0
                         }
-                    ]
+                    }))
                 };
             }
         }),
-        async (uri, { workerId }) => ({
-            contents: [{
-                uri: uri.href,
-                text: `${workerId} is busy`,
-            }]
-        })
+        async (uri, { workerId }) => {
+            // Get specific worker state
+            let workerIdString: string = '';
+            if (Array.isArray(workerId) && workerId.length > 0) {
+                workerIdString = workerId[0];
+            } else {
+                workerIdString = workerId.toString();
+            }
+
+            const worker = getWorkerState(workerIdString);
+            
+            if (!worker) {
+                return {
+                    contents: [{
+                        uri: uri.href,
+                        text: `Worker ${workerIdString} not found or not connected`,
+                    }]
+                };
+            }
+            
+            return {
+                contents: [{
+                    uri: uri.href,
+                    text: `Worker ${workerIdString} - Status: ${worker.status}\n` +
+                          `Battery Level: ${worker.batteryLevel}%\n` +
+                          `Current Task: ${worker.currentTask || 'None'}\n` +
+                          `Last Update: ${new Date(worker.timestamp).toLocaleString()}`,
+                }]
+            };
+        }
     );
 
     mcpServer.tool(
@@ -46,10 +78,26 @@ export function setSseRoutes(app: express.Express) {
             workerId: z.string().describe('ID of the worker to get status for'),
         },
         async (params: unknown) => {
+            const { workerId } = params as { workerId: string };
+            const worker = getWorkerState(workerId);
+            
+            if (!worker) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Worker ${workerId} not found or not connected`
+                    }]
+                };
+            }
+            
             return {
                 content: [{
                     type: "text",
-                    text: `${(params as { workerId: string }).workerId} is busy`
+                    text: `Worker ${workerId}:\n` +
+                          `Status: ${worker.status}\n` +
+                          `Battery Level: ${worker.batteryLevel}%\n` +
+                          `Current Task: ${worker.currentTask || 'None'}\n` +
+                          `Last Update: ${new Date(worker.timestamp).toLocaleString()}`
                 }]
             };
         }
@@ -62,36 +110,81 @@ export function setSseRoutes(app: express.Express) {
             workerId: z.string().describe('ID of the worker to fire'),
         },
         async (params: unknown) => {
-            return {
-                content: [{
-                    type: "text",
-                    text: `${(params as { workerId: string }).workerId} terminated`
-                }]
-            };
+            const { workerId } = params as { workerId: string };
+            
+            // Attempt to send terminate command to worker
+            const success = terminateWorker(workerId);
+            
+            if (success) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Worker ${workerId} termination command sent successfully`
+                    }]
+                };
+            } else {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to terminate worker ${workerId}: Worker not connected`
+                    }]
+                };
+            }
         }
     );
 
-    let transport: SSEServerTransport | null = null;
-
+    // Map to store transports by session ID
+    const transports = new Map<string, SSEServerTransport>();
+    
     const sseRouter = express.Router();
 
     sseRouter.get('/', (_req, res) => {
-        transport = new SSEServerTransport("/sse/messages", res);
+        // Create new transport for this session
+        const transport = new SSEServerTransport("/sse/messages", res);
+        
+        // Connect transport to MCP server
         mcpServer.server.connect(transport);
+        
+        // Extract sessionId after connection (it's generated by SSEServerTransport internally)
+        const sessionId = transport.sessionId;
+        if (sessionId) {
+            console.log(`New SSE session established: ${sessionId}`);
+            transports.set(sessionId, transport);
+            
+            // Clean up when connection closes
+            res.on('close', () => {
+                console.log(`SSE session closed: ${sessionId}`);
+                transports.delete(sessionId);
+            });
+        } else {
+            console.error("Failed to get sessionId from transport");
+        }
     });
 
     sseRouter.post('/messages', (req, res) => {
-        if (transport) {
-            const sessionId = req.query.sessionId;
-            console.log(`Received message for sessionId ${sessionId}`);
+        const sessionId = req.query.sessionId as string;
+        
+        if (!sessionId) {
+            res.status(400).send('Missing sessionId parameter');
+            return;
+        }
+        
+        const transport = transports.get(sessionId);
+        
+        if (!transport) {
+            console.warn(`No active transport for session ${sessionId}`);
+            res.status(404).send(`No active session: ${sessionId}`);
+            return;
+        }
+        
+        console.log(`Received message for sessionId ${sessionId}`);
 
-            const message: JSONRPCMessage = req.body as JSONRPCMessage;
-            try {
-                transport.handlePostMessage(req, res, message);
-            } catch (error) {
-                console.error("Error in /message route:", error);
-                res.status(500).json(error);
-            }
+        const message: JSONRPCMessage = req.body as JSONRPCMessage;
+        try {
+            transport.handlePostMessage(req, res, message);
+        } catch (error) {
+            console.error(`Error in /message route for session ${sessionId}:`, error);
+            res.status(500).json(error);
         }
     });
 

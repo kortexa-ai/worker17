@@ -3,19 +3,12 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import workerModelPath from '/src/assets/models/worker17.glb?url';
+import { AnimationNames } from './types';
 
 interface Worker17Props {
     position?: [number, number, number];
     isWalking?: boolean;
-    direction?: [number, number, number]; // Optional direction vector for manual control
-}
-
-export enum AnimationNames {
-    Grounded = "Armature|Grounded",
-    Idle = "Armature|Idle",
-    Jump = "Armature|Jump",
-    Sprint = "Armature|Sprint",
-    Walk = "Armature|Walk"
+    direction?: [number, number, number];
 }
 
 export function Worker17({ 

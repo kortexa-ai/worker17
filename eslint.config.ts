@@ -19,6 +19,7 @@ export default tseslint.config(
             'dev-dist/**',
             'coverage/**',
             'public/**',
+            'server/**',
         ]
     },
     {

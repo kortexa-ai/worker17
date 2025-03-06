@@ -20,22 +20,22 @@ export interface WorkerState {
 }
 
 // Message types for WebSocket communication
-export interface Worker17Message {
+export interface SocketMessage {
   type: 'stateUpdate' | 'command' | 'error' | 'connect' | 'disconnect';
   workerId?: string;
   payload: unknown;
   timestamp: number;
 }
 
-export interface StateUpdateMessage extends Worker17Message {
+export interface StateUpdateMessage extends SocketMessage {
   type: 'stateUpdate';
   payload: WorkerState;
 }
 
-export interface CommandMessage extends Worker17Message {
+export interface CommandMessage extends SocketMessage {
   type: 'command';
   payload: {
-    command: 'move' | 'stop' | 'reset' | 'activate' | 'deactivate' | 'setTask';
+    command: 'terminate';
     parameters?: unknown;
   };
 }
@@ -52,6 +52,6 @@ export interface ConnectedClient {
 // MCP Tool types
 export interface WorkerCommandParameters {
   workerId: string;
-  command: 'move' | 'stop' | 'reset' | 'activate' | 'deactivate' | 'setTask';
+  command: 'terminate';
   parameters?: unknown;
 }
