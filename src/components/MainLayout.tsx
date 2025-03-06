@@ -11,7 +11,7 @@ import { useWebSocket } from '../socket/hooks/useWebSocket';
 
 export const PLOT_SIZE = 20;
 export const RECHARGE_STATION_POSITION = [-(PLOT_SIZE/2 - 6), 0, -(PLOT_SIZE/2 - 6)] as const; // Opposite corner, more inward for the larger bed
-export const RECHARGE_STATION_RADIUS = 8; // Radius to avoid during normal walking
+export const RECHARGE_STATION_RADIUS = 2; // Radius to avoid during normal walking
 
 export function MainLayout() {
     const [, setVideoStream] = useState<MediaStream>();
