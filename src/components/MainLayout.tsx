@@ -6,7 +6,7 @@ import { ThreeContainer } from './ThreeContainer';
 import { Environment, OrbitControls, Box } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import { Worker17 } from './Worker17';
-import { useWebSocket } from '../lib/WebSocketContext';
+import { useWebSocket } from '@/socket/hooks/useWebSocket';
 
 export const PLOT_SIZE = 20;
 

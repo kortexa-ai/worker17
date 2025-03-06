@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { WebSocketContext } from './WebSocketContext';
 
 // Define interface for the context state
-interface WebSocketContextState {
+export interface WebSocketContextState {
   isConnected: boolean;
-  sendMessage: (message: any) => void;
+  sendMessage: (message: unknown) => void;
   workerState: {
     id: string;
     active: boolean;
@@ -13,34 +15,23 @@ interface WebSocketContextState {
     batteryLevel?: number;
     currentTask?: string;
   } | null;
-  sendCommand: (command: string, parameters?: any) => void;
+  sendCommand: (command: string, parameters?: unknown) => void;
 }
 
-// Create the context with a default value
-const WebSocketContext = createContext<WebSocketContextState>({
-  isConnected: false,
-  sendMessage: () => {},
-  workerState: null,
-  sendCommand: () => {}
-});
-
 // Worker17 ID for this client
-const WORKER_ID = 'worker17-primary';
-
-// Hook to use the WebSocket context
-export const useWebSocket = () => useContext(WebSocketContext);
+const WORKER_ID = 'worker17';
 
 // WebSocket Provider Component
-export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [workerState, setWorkerState] = useState<WebSocketContextState['workerState']>(null);
   
   // Get WebSocket URL from environment or use default
-  const wsUrl = import.meta.env.VITE_WORKER_SERVER_URL || 'ws://localhost:3001';
+  const wsUrl = import.meta.env.VITE_WORKER_SERVER_URL || 'ws://localhost:3000';
   
   // Function to send messages to the server
-  const sendMessage = useCallback((message: any) => {
+  const sendMessage = useCallback((message: unknown) => {
     if (socket && isConnected) {
       socket.send(JSON.stringify(message));
     } else {
@@ -49,7 +40,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   }, [socket, isConnected]);
   
   // Function to send commands to the worker
-  const sendCommand = useCallback((command: string, parameters?: any) => {
+  const sendCommand = useCallback((command: string, parameters?: unknown) => {
     if (socket && isConnected) {
       const message = {
         type: 'command',
@@ -213,7 +204,6 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     return () => clearInterval(interval);
   }, [isConnected, socket, workerState, sendMessage]);
   
-  // Provide the WebSocket context to children
   return (
     <WebSocketContext.Provider value={{ isConnected, sendMessage, workerState, sendCommand }}>
       {children}

@@ -64,7 +64,12 @@ To use Worker17 with Claude Desktop:
 
 1. Install Claude Desktop from https://claude.ai/download
 2. Configure Claude Desktop to use the Worker17 MCP server
-3. Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+### MCP Server Configuration
+
+#### Option 1: STDIO Transport (Local Process)
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
@@ -82,8 +87,26 @@ To use Worker17 with Claude Desktop:
 }
 ```
 
-4. Restart Claude Desktop
-5. Ask Claude to check worker status or send commands
+#### Option 2: SSE Transport (HTTP Connection)
+
+If you're running the Worker17 server separately or want to connect to a remote instance, you can use the SSE (Server-Sent Events) transport.
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "worker17-sse": {
+      "url": "http://localhost:3001/mcp/sse"
+    }
+  }
+}
+```
+
+Replace `localhost:3001` with the appropriate host and port where your Worker17 server is running.
+
+3. Restart Claude Desktop
+4. Ask Claude to check worker status or send commands
 
 Example prompts for Claude:
 - "Can you check the status of all workers?"

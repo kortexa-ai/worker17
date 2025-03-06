@@ -1,0 +1,11 @@
+node_modules
+server/node_modules
+.git
+.github
+.devcontainer
+dist
+server/dist
+build
+server/build
+npm-debug.log
+.DS_Store

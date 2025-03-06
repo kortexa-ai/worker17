@@ -1,5 +1,5 @@
 import { MainLayout } from "./components/MainLayout";
-import { WebSocketProvider } from "./lib/WebSocketContext";
+import { WebSocketProvider } from "./socket/WebSocketProvider";
 
 export function App() {
     return (

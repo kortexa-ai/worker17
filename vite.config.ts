@@ -58,6 +58,6 @@ export default defineConfig({
     server: {
         host: "0.0.0.0",
         port: parseInt(process.env.VITE_DEVSERVER_PORT ?? "8000", 10),
-        open: true,
+        open: false,
     },
 })
