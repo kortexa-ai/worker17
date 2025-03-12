@@ -1,18 +1,19 @@
 {
-  "name": "@francip/worker17-server",
+  "name": "@kortexa-ai/worker17-server",
   "version": "0.1.0",
   "description": "WebSocket and MCP server for Worker17",
   "copyright": "Copyright © 2025 kortexa.ai",
   "author": {
     "name": "Franci Penov",
-    "email": "francip@gmail.com"
+    "email": "francip@kortexa.ai",
+    "url": "https://kortexa.ai"
   },
   "keywords": [],
   "license": "MIT",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/francip/worker17.git"
+    "url": "git+https://github.com/kortexa-ai/worker17.git"
   },
   "type": "module",
   "main": "dist/server.js",
@@ -31,10 +32,10 @@
     "test:ci": "vitest run --coverage --reporter=json --outputFile=build/test-results.json"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@modelcontextprotocol/sdk": "^1.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^5.0.1",
+    "express": "^4.21.2",
     "express-ws": "^5.0.2",
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
@@ -44,11 +45,11 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/express-ws": "^3.0.5",
-    "@types/node": "^22.13.9",
+    "@types/node": "^22.13.10",
     "@types/ws": "^8.18.0",
-    "@vitest/coverage-v8": "^3.0.7",
-    "eslint": "^9.21.0",
-    "eslint-import-resolver-typescript": "^3.8.3",
+    "@vitest/coverage-v8": "^3.0.8",
+    "eslint": "^9.22.0",
+    "eslint-import-resolver-typescript": "^3.8.5",
     "eslint-plugin-import": "^2.31.0",
     "globals": "^16.0.0",
     "jiti": "^2.4.2",
@@ -56,9 +57,9 @@
     "npm-check-updates": "^17.1.15",
     "tsc-alias": "^1.8.11",
     "tsx": "^4.19.3",
-    "typescript": "~5.7.3",
-    "typescript-eslint": "^8.25.0",
-    "vitest": "^3.0.7"
+    "typescript": "~5.8.2",
+    "typescript-eslint": "^8.26.1",
+    "vitest": "^3.0.8"
   },
   "engines": {
     "node": ">=22.0.0"
