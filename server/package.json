@@ -20,7 +20,7 @@
   "scripts": {
     "start": "nodemon --watch src --exec 'tsx' src/server.ts",
     "dev": "nodemon --watch src --exec 'tsx' src/server.ts",
-    "clean": "rm -rf dist dev-dist build coverage data",
+    "clean": "rm -rf dist dev-dist lib build coverage data",
     "lint": "eslint . --report-unused-disable-directives --no-error-on-unmatched-pattern",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
@@ -62,6 +62,6 @@
     "vitest": "^3.0.8"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=18"
   }
 }
