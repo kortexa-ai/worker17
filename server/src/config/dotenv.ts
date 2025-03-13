@@ -10,6 +10,6 @@ export function loadEnv() {
     ];
     
     for (const file of envFiles) {
-        dotenv.config({ path: file });
+        dotenv.config({ path: file, override: true });
     }
 }
