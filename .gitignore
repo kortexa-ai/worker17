@@ -14,9 +14,14 @@ coverage/
 *.sqlite
 .DS_Store
 
+# Firebase service account
+*service-account*.json
+*serviceAccount*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 *.suo
 *.ntvs*
@@ -32,3 +37,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Local Netlify folder
+.netlify
