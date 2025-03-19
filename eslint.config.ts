@@ -20,6 +20,7 @@ export default tseslint.config(
             'coverage/**',
             'public/**',
             'server/**',
+            'functions/**',
         ]
     },
     {
