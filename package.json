@@ -19,7 +19,7 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
-    "clean": "rm -rf dist dev-dist lib build coverage",
+    "clean": "rm -rf dist dev-dist lib build coverage data src/date server/data",
     "lint": "eslint . --report-unused-disable-directives --no-error-on-unmatched-pattern",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
