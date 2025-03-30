@@ -36,7 +36,6 @@ export default defineConfig({
             "@": path.resolve(__dirname, './src'),
             'react': path.resolve(__dirname, './node_modules/react'),
             'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
-            '@kortexa-ai/core': path.resolve(__dirname, './node_modules/@kortexa-ai/core'),
         },
     },
     build: {
