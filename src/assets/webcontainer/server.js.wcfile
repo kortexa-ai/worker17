@@ -1,0 +1,194 @@
+import express from 'express';
+import expressWs from 'express-ws';
+import cors from 'cors';
+
+const app = express();
+app.use(cors({ origin: '*' }));
+app.use(express.json());
+
+// ---- Health Routes ----
+app.get('/', (_req, res) => {
+  res.send('Worker17 MCP Server is running');
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// ---- WebSocket Setup ----
+const wsApp = expressWs(app);
+
+// Store active connections by worker ID
+const workerConnections = new Map();
+
+// WebSocket endpoint
+app.ws('/ws', (ws, req) => {
+  console.log('WebSocket client connected');
+  
+  // Keep track of which worker this is
+  let workerId = null;
+  
+  // Send welcome message
+  ws.send(JSON.stringify({
+    type: 'info',
+    message: 'Connected to Worker17 WebContainer server',
+    timestamp: Date.now()
+  }));
+  
+  // Handle incoming messages
+  ws.on('message', (msg) => {
+    try {
+      const data = JSON.parse(msg.toString());
+      console.log(`Received WebSocket message: ${data.type}`);
+      
+      // Handle different message types
+      switch (data.type) {
+        case 'connect':
+          // Client identifying itself as a worker
+          workerId = data.workerId;
+          if (workerId) {
+            workerConnections.set(workerId, ws);
+            console.log(`Worker connected and registered: ${workerId}`);
+            
+            // Acknowledge the connection
+            ws.send(JSON.stringify({
+              type: 'connectResponse',
+              workerId: workerId,
+              payload: { connected: true },
+              timestamp: Date.now()
+            }));
+          }
+          break;
+          
+        case 'statusRequest':
+          // Client requesting worker status
+          const requestedWorkerId = data.workerId;
+          console.log(`Status requested for worker: ${requestedWorkerId}`);
+          
+          // Prepare a mock or real status response
+          const status = {
+            id: requestedWorkerId,
+            active: true,
+            status: 'idle',
+            batteryLevel: 95,
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 },
+            currentTask: 'WebContainer operation',
+            timestamp: Date.now()
+          };
+          
+          // Send back the status response
+          ws.send(JSON.stringify({
+            type: 'statusResponse',
+            requestId: data.requestId,
+            workerId: requestedWorkerId,
+            payload: status,
+            timestamp: Date.now()
+          }));
+          break;
+          
+        case 'statusResponse':
+          // Pass through status response
+          console.log(`Received status response for worker: ${data.workerId}`);
+          break;
+          
+        case 'command':
+          // Handle commands for the worker
+          console.log(`Command received: ${data.payload.command}`);
+          
+          // Echo back a confirmation
+          ws.send(JSON.stringify({
+            type: 'commandResponse',
+            workerId: data.workerId,
+            payload: { 
+              received: true,
+              command: data.payload.command,
+              parameters: data.payload.parameters
+            },
+            timestamp: Date.now()
+          }));
+          break;
+          
+        case 'cameraImageRequest':
+          // Handle camera image requests
+          const targetWorkerId = data.workerId;
+          console.log(`Camera image requested for worker: ${targetWorkerId}`);
+          
+          // Send a dummy response (in real implementation this would capture an image)
+          ws.send(JSON.stringify({
+            type: 'cameraImageResponse',
+            requestId: data.requestId,
+            workerId: targetWorkerId,
+            payload: { 
+              message: 'Camera image not available in WebContainer mode',
+              timestamp: Date.now()
+            },
+            timestamp: Date.now()
+          }));
+          break;
+      }
+      
+      // Always acknowledge receipt
+      ws.send(JSON.stringify({ type: 'ack' }));
+    } catch (error) {
+      console.error('Error processing WebSocket message:', error);
+      ws.send(JSON.stringify({ 
+        type: 'error', 
+        message: 'Failed to process message' 
+      }));
+    }
+  });
+  
+  // Handle disconnection
+  ws.on('close', () => {
+    if (workerId) {
+      // Remove from active connections
+      workerConnections.delete(workerId);
+      console.log(`Worker disconnected: ${workerId}`);
+    }
+  });
+});
+
+// ---- SSE Routes for MCP ----
+app.get('/sse', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  
+  // Send a simple event to show the connection is working
+  res.write('event: mcp-handshake\n');
+  res.write('data: {"status":"connected"}\n\n');
+  
+  // Keep the connection alive with a ping every 30 seconds
+  const pingInterval = setInterval(() => {
+    res.write('event: ping\n');
+    res.write(`data: {"time":"${new Date().toISOString()}"}\n\n`);
+  }, 30000);
+  
+  // Send a message that this is a WebContainer version
+  res.write('event: info\n');
+  res.write('data: {"message":"WebContainer MCP server - basic functionality only"}\n\n');
+  
+  // Clean up on close
+  req.on('close', () => {
+    clearInterval(pingInterval);
+  });
+});
+
+// SSE message endpoint (simplified, no MCP implementation)
+app.post('/sse/messages', (req, res) => {
+  res.json({
+    jsonrpc: "2.0",
+    id: req.body.id,
+    result: {
+      status: "ok",
+      message: "WebContainer version - MCP not fully implemented"
+    }
+  });
+});
+
+// Start the server
+const PORT = 4000;
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});

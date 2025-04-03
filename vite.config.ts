@@ -4,7 +4,23 @@ import react from "@vitejs/plugin-react-swc"
 import tailwindcss from '@tailwindcss/vite'
 import glsl from 'vite-plugin-glsl'
 
-import { defineConfig } from 'vite'
+import { defineConfig, Plugin } from 'vite'
+
+// Custom plugin for .wcfile extension (WebContainer files)
+const wcfilePlugin = (): Plugin => {
+  return {
+    name: 'vite-plugin-wcfile',
+    transform(code, id) {
+      if (id.endsWith('.wcfile')) {
+        // Return the file content as a string
+        return {
+          code: `export default ${JSON.stringify(code)};`,
+          map: null
+        };
+      }
+    }
+  };
+};
 
 import dotenv from 'dotenv';
 const nodeEnv = process.env.NODE_ENV ?? 'development';
@@ -25,6 +41,7 @@ export default defineConfig({
         react(),
         tailwindcss(),
         glsl(),
+        wcfilePlugin(),
     ],
     optimizeDeps: {
         esbuildOptions: {
@@ -37,6 +54,7 @@ export default defineConfig({
             'react': path.resolve(__dirname, './node_modules/react'),
             'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
         },
+        extensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.wcfile']
     },
     build: {
         outDir: './dist',
