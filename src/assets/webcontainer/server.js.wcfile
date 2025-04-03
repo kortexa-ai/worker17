@@ -1,18 +1,33 @@
+// WebContainer version of the server
+// This is a simplified version adapted from the TypeScript server
+// It will be overridden by the dynamic Vite plugin if server/src/server.ts exists
+
 import express from 'express';
 import expressWs from 'express-ws';
 import cors from 'cors';
 
 const app = express();
-app.use(cors({ origin: '*' }));
+const nodeEnv = process.env.NODE_ENV || 'development';
+
+// Set up CORS
+app.use(cors({ 
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // ---- Health Routes ----
 app.get('/', (_req, res) => {
-  res.send('Worker17 MCP Server is running');
+  res.send('Worker17 MCP Server is running in WebContainer');
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    time: new Date().toISOString(),
+    environment: 'webcontainer'
+  });
 });
 
 // ---- WebSocket Setup ----
@@ -20,6 +35,99 @@ const wsApp = expressWs(app);
 
 // Store active connections by worker ID
 const workerConnections = new Map();
+
+// Helper functions for worker management
+const addWorkerConnection = (workerId, ws) => {
+  workerConnections.set(workerId, ws);
+  console.log(`Worker registered: ${workerId}`);
+};
+
+const terminateWorker = (workerId) => {
+  const ws = workerConnections.get(workerId);
+  if (!ws || ws.readyState !== 1) { // WebSocket.OPEN is 1
+    console.log(`Cannot terminate worker ${workerId}: not connected`);
+    return false;
+  }
+  
+  // Send terminate command
+  ws.send(JSON.stringify({
+    type: 'command',
+    workerId,
+    payload: {
+      command: 'terminate'
+    },
+    timestamp: Date.now()
+  }));
+  
+  console.log(`Terminate command sent to worker: ${workerId}`);
+  return true;
+};
+
+const getAllWorkerIds = () => {
+  return Array.from(workerConnections.keys());
+};
+
+const getWorkerState = (workerId) => {
+  return new Promise((resolve) => {
+    const ws = workerConnections.get(workerId);
+    if (!ws || ws.readyState !== 1) { // WebSocket.OPEN is 1
+      console.log(`Cannot get status for worker ${workerId}: not connected`);
+      // Return a basic offline state
+      resolve({
+        id: workerId,
+        active: false,
+        status: 'offline',
+        timestamp: Date.now()
+      });
+      return;
+    }
+    
+    // Generate a unique request ID
+    const requestId = `status-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Create a one-time message handler for this specific request
+    const handleResponse = (event) => {
+      try {
+        const data = JSON.parse(event.data.toString());
+        if (data.type === 'statusResponse' && data.requestId === requestId) {
+          // We got our response, remove the listener
+          ws.removeEventListener('message', handleResponse);
+          
+          // Resolve with the received state
+          resolve(data.payload);
+        }
+      } catch (error) {
+        console.error('Error parsing status response:', error);
+      }
+    };
+    
+    // Add temporary listener for this specific response
+    ws.addEventListener('message', handleResponse);
+    
+    // Set a timeout to clean up and return default offline state if no response
+    setTimeout(() => {
+      ws.removeEventListener('message', handleResponse);
+      console.log(`Status request for worker ${workerId} timed out`);
+      resolve({
+        id: workerId,
+        active: false,
+        status: 'offline',
+        timestamp: Date.now()
+      });
+    }, 5000);
+    
+    // Send the status request
+    ws.send(JSON.stringify({
+      type: 'statusRequest',
+      workerId,
+      requestId,
+      payload: {},
+      timestamp: Date.now()
+    }));
+    
+    console.log(`Status requested for worker: ${workerId}`);
+  });
+};
 
 // WebSocket endpoint
 app.ws('/ws', (ws, req) => {
@@ -36,7 +144,7 @@ app.ws('/ws', (ws, req) => {
   }));
   
   // Handle incoming messages
-  ws.on('message', (msg) => {
+  ws.on('message', async (msg) => {
     try {
       const data = JSON.parse(msg.toString());
       console.log(`Received WebSocket message: ${data.type}`);
@@ -47,46 +155,91 @@ app.ws('/ws', (ws, req) => {
           // Client identifying itself as a worker
           workerId = data.workerId;
           if (workerId) {
-            workerConnections.set(workerId, ws);
+            addWorkerConnection(workerId, ws);
             console.log(`Worker connected and registered: ${workerId}`);
-            
-            // Acknowledge the connection
-            ws.send(JSON.stringify({
-              type: 'connectResponse',
-              workerId: workerId,
-              payload: { connected: true },
-              timestamp: Date.now()
-            }));
           }
           break;
           
         case 'statusRequest':
-          // Client requesting worker status
-          const requestedWorkerId = data.workerId;
+          // Client or MCP server requesting worker status
+          const requestedWorkerId = data.payload?.targetWorkerId || data.workerId;
           console.log(`Status requested for worker: ${requestedWorkerId}`);
           
-          // Prepare a mock or real status response
-          const status = {
-            id: requestedWorkerId,
-            active: true,
-            status: 'idle',
-            batteryLevel: 95,
-            position: { x: 0, y: 0, z: 0 },
-            rotation: { x: 0, y: 0, z: 0 },
-            currentTask: 'WebContainer operation',
-            timestamp: Date.now()
-          };
+          // Get the worker connection
+          const targetWorkerWs = workerConnections.get(requestedWorkerId);
           
-          // Send back the status response
-          ws.send(JSON.stringify({
-            type: 'statusResponse',
-            requestId: data.requestId,
-            workerId: requestedWorkerId,
-            payload: status,
-            timestamp: Date.now()
-          }));
+          if (targetWorkerWs && targetWorkerWs.readyState === 1) { // WebSocket.OPEN is 1
+            // Forward the status request to the worker
+            targetWorkerWs.send(JSON.stringify({
+              type: 'statusRequest',
+              workerId: requestedWorkerId,
+              requestId: data.requestId,
+              timestamp: Date.now()
+            }));
+            
+            // Wait for response via one-time listener
+            const responsePromise = new Promise((resolve) => {
+              const responseHandler = (responseMsg) => {
+                try {
+                  const responseData = JSON.parse(responseMsg.data.toString());
+                  
+                  // Check if this is the response we're waiting for
+                  if (responseData.type === 'statusResponse' && 
+                      responseData.requestId === data.requestId) {
+                      
+                    // Forward the response back to the original requester
+                    ws.send(responseMsg.data.toString());
+                    resolve();
+                  }
+                } catch (error) {
+                  console.error('Error processing response:', error);
+                }
+              };
+              
+              // Set up the listener
+              targetWorkerWs.addEventListener('message', responseHandler, { once: true });
+              
+              // Set a timeout to clean up and send fallback
+              setTimeout(() => {
+                // Remove the listener to avoid memory leaks
+                targetWorkerWs.removeEventListener('message', responseHandler);
+                
+                console.log(`Status request for worker ${requestedWorkerId} timed out`);
+                ws.send(JSON.stringify({
+                  type: 'statusResponse',
+                  requestId: data.requestId,
+                  workerId: requestedWorkerId,
+                  payload: { 
+                    id: requestedWorkerId, 
+                    active: false, 
+                    status: 'offline',
+                    timestamp: Date.now()
+                  },
+                  timestamp: Date.now()
+                }));
+                resolve();
+              }, 5000);
+            });
+            
+            // Wait for the response to be handled
+            await responsePromise;
+          } else {
+            // Worker is not connected, send offline status
+            ws.send(JSON.stringify({
+              type: 'statusResponse',
+              requestId: data.requestId,
+              workerId: requestedWorkerId,
+              payload: { 
+                id: requestedWorkerId, 
+                active: false, 
+                status: 'offline',
+                timestamp: Date.now()
+              },
+              timestamp: Date.now()
+            }));
+          }
           break;
-          
+        
         case 'statusResponse':
           // Pass through status response
           console.log(`Received status response for worker: ${data.workerId}`);
@@ -95,18 +248,6 @@ app.ws('/ws', (ws, req) => {
         case 'command':
           // Handle commands for the worker
           console.log(`Command received: ${data.payload.command}`);
-          
-          // Echo back a confirmation
-          ws.send(JSON.stringify({
-            type: 'commandResponse',
-            workerId: data.workerId,
-            payload: { 
-              received: true,
-              command: data.payload.command,
-              parameters: data.payload.parameters
-            },
-            timestamp: Date.now()
-          }));
           break;
           
         case 'cameraImageRequest':
@@ -187,8 +328,27 @@ app.post('/sse/messages', (req, res) => {
   });
 });
 
+// Set routes - WebSocket routes already set above
+const setSocketRoutes = (wsApp) => {
+  // This is intentionally empty as we already set up the WebSocket route
+};
+
+const setSseRoutes = (app) => {
+  // This is intentionally empty as we already set up the SSE routes
+};
+
+const setHealthRoutes = (app) => {
+  // This is intentionally empty as we already set up the health routes
+};
+
+// Simulate the route setup function calls for consistency with the original
+setHealthRoutes(app);
+setSseRoutes(app);
+setSocketRoutes(wsApp);
+
 // Start the server
 const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Environment: ${nodeEnv} (WebContainer)`);
 });

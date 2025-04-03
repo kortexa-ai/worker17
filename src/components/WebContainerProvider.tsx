@@ -29,12 +29,16 @@ export function useWebContainer() {
 interface WebContainerProviderProps {
   children: ReactNode;
   autoStart?: boolean;
+  onServerStarted?: (url: string) => void;
+  onError?: (error: Error) => void;
 }
 
 // WebContainer Provider Component
 export function WebContainerProvider({ 
   children, 
-  autoStart = true 
+  autoStart = true,
+  onServerStarted: parentOnServerStarted,
+  onError: parentOnError
 }: WebContainerProviderProps) {
   const [state, setState] = useState<WebContainerContextState>({
     isLoaded: false,
@@ -60,7 +64,12 @@ export function WebContainerProvider({
       isRunning: true,
       serverUrl: url
     }));
-  }, []);
+    
+    // Call the parent callback if provided
+    if (parentOnServerStarted) {
+      parentOnServerStarted(url);
+    }
+  }, [parentOnServerStarted]);
 
   // Handler for WebContainer errors
   const handleError = useCallback((error: Error) => {
@@ -69,7 +78,12 @@ export function WebContainerProvider({
       ...prev,
       error
     }));
-  }, []);
+    
+    // Call the parent callback if provided
+    if (parentOnError) {
+      parentOnError(error);
+    }
+  }, [parentOnError]);
 
   // Update the WebSocket URL in env vars when the server is running
   useEffect(() => {

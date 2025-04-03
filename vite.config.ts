@@ -4,19 +4,68 @@ import react from "@vitejs/plugin-react-swc"
 import tailwindcss from '@tailwindcss/vite'
 import glsl from 'vite-plugin-glsl'
 
-import { defineConfig, Plugin } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
+
+import fs from 'fs';
 
 // Custom plugin for .wcfile extension (WebContainer files)
 const wcfilePlugin = (): Plugin => {
   return {
     name: 'vite-plugin-wcfile',
-    transform(code, id) {
+    async transform(code, id) {
       if (id.endsWith('.wcfile')) {
-        // Return the file content as a string
-        return {
-          code: `export default ${JSON.stringify(code)};`,
-          map: null
-        };
+        try {
+          // Extract the filename from the .wcfile path
+          const parts = id.split('/');
+          const filename = parts[parts.length - 1];
+          const baseName = filename.replace('.wcfile', '');
+
+          // Map to potential server locations
+          const serverMappings: Record<string, string> = {
+            'package.json': path.resolve(__dirname, 'server/package.json'),
+            'server.js': path.resolve(__dirname, 'server/src/server.ts'),
+            // Add mappings for other files here
+          };
+
+          let fileContent = code;
+
+          // Check if we have a mapping for this file
+          if (serverMappings[baseName]) {
+            const serverFilePath = serverMappings[baseName];
+
+            // Check if the server file exists
+            if (fs.existsSync(serverFilePath)) {
+              console.log(`Reading ${baseName} from server file: ${serverFilePath}`);
+
+              // Read the content from the server file
+              fileContent = fs.readFileSync(serverFilePath, 'utf-8');
+
+              // Special handling for server.ts -> server.js transformation
+              if (baseName === 'server.js') {
+                // Transform TypeScript imports to JS imports
+                fileContent = fileContent
+                  .replace(/import .* from ['"](.*)\.js['"];/g, 'import * from "$1.js";')
+                  // Convert .ts imports to .js for WebContainer (ESM requires file extensions)
+                  .replace(/from ['"](.*)\.ts['"];/g, 'from "$1.js";');
+              }
+            } else {
+              console.log(`Server file not found for ${baseName}, using asset file`);
+            }
+          }
+
+          // Return the file content as a string
+          return {
+            code: `export default ${JSON.stringify(fileContent)};`,
+            map: null
+          };
+        } catch (error) {
+          console.error(`Error processing ${id}:`, error);
+          // If there's an error, fall back to the original code
+          return {
+            code: `export default ${JSON.stringify(code)};`,
+            map: null
+          };
+        }
       }
     }
   };
