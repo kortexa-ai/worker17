@@ -4,6 +4,13 @@ import { WebContainer } from '@webcontainer/api';
 // Import the WebContainer file contents
 import packageJsonContent from '../assets/webcontainer/package.json.wcfile';
 import serverJsContent from '../assets/webcontainer/server.js.wcfile';
+import corsJsContent from '../assets/webcontainer/config/cors.js.wcfile';
+import dotenvJsContent from '../assets/webcontainer/config/dotenv.js.wcfile';
+import developersJsContent from '../assets/webcontainer/config/developers.js.wcfile';
+import healthJsContent from '../assets/webcontainer/routes/health.js.wcfile';
+import socketJsContent from '../assets/webcontainer/routes/socket.js.wcfile';
+import sseJsContent from '../assets/webcontainer/routes/sse.js.wcfile';
+import typesJsContent from '../assets/webcontainer/types.js.wcfile';
 
 export interface WebContainerComponentProps {
   onReady?: (container: WebContainer) => void;
@@ -28,18 +35,70 @@ export function WebContainerComponent({
   const containerRef = useRef<WebContainer | null>(null);
 
   // File structure for our server
-  const serverFiles = useMemo(() => ({
-    'package.json': {
-      file: {
-        contents: packageJsonContent
+  const serverFiles = useMemo(() => {
+    // Create the base file structure
+    const files = {
+      'package.json': {
+        file: {
+          contents: packageJsonContent
+        },
       },
-    },
-    'server.js': {
-      file: {
-        contents: serverJsContent
+      'server.js': {
+        file: {
+          contents: serverJsContent
+        }
+      },
+      'types.js': {
+        file: {
+          contents: typesJsContent
+        }
       }
-    }
-  }), []);
+    };
+
+    // Add config directory
+    files['config'] = {
+      directory: {
+        'cors.js': {
+          file: {
+            contents: corsJsContent
+          }
+        },
+        'dotenv.js': {
+          file: {
+            contents: dotenvJsContent
+          }
+        },
+        'developers.js': {
+          file: {
+            contents: developersJsContent
+          }
+        }
+      }
+    };
+
+    // Add routes directory
+    files['routes'] = {
+      directory: {
+        'health.js': {
+          file: {
+            contents: healthJsContent
+          }
+        },
+        'socket.js': {
+          file: {
+            contents: socketJsContent
+          }
+        },
+        'sse.js': {
+          file: {
+            contents: sseJsContent
+          }
+        }
+      }
+    };
+
+    return files;
+  }, []);
 
   // Initialize and boot the WebContainer
   const initContainer = useCallback(async () => {
@@ -128,7 +187,7 @@ export function WebContainerComponent({
         console.error('Failed to initialize WebContainer:', error);
       }
     }
-  }, [serverFiles, onReady, onServerStarted, onError]);
+  }, [serverFiles, onReady, onServerStarted, onError, port, nodeEnv, serverOptions]);
 
   // Start the WebContainer on component mount
   useEffect(() => {

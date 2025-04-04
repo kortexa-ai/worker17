@@ -19,40 +19,56 @@ const wcfilePlugin = (): Plugin => {
           const parts = id.split('/');
           const filename = parts[parts.length - 1];
           const baseName = filename.replace('.wcfile', '');
-
-          // Map to potential server locations
-          const serverMappings: Record<string, string> = {
-            'package.json': path.resolve(__dirname, 'server/package.json'),
-            'server.js': path.resolve(__dirname, 'server/src/server.ts'),
-            // Add mappings for other files here
-          };
-
+          
           let fileContent = code;
-
-          // Check if we have a mapping for this file
-          if (serverMappings[baseName]) {
-            const serverFilePath = serverMappings[baseName];
-
-            // Check if the server file exists
-            if (fs.existsSync(serverFilePath)) {
-              console.log(`Reading ${baseName} from server file: ${serverFilePath}`);
-
-              // Read the content from the server file
-              fileContent = fs.readFileSync(serverFilePath, 'utf-8');
-
-              // Special handling for server.ts -> server.js transformation
-              if (baseName === 'server.js') {
-                // Transform TypeScript imports to JS imports
-                fileContent = fileContent
-                  .replace(/import .* from ['"](.*)\.js['"];/g, 'import * from "$1.js";')
-                  // Convert .ts imports to .js for WebContainer (ESM requires file extensions)
-                  .replace(/from ['"](.*)\.ts['"];/g, 'from "$1.js";');
-              }
-            } else {
-              console.log(`Server file not found for ${baseName}, using asset file`);
+          
+          // Special handling for package.json - always read from server directory
+          if (baseName === 'package.json') {
+            const packageJsonPath = path.resolve(__dirname, 'server/package.json');
+            if (fs.existsSync(packageJsonPath)) {
+              console.log(`Reading package.json from server: ${packageJsonPath}`);
+              fileContent = fs.readFileSync(packageJsonPath, 'utf-8');
             }
           }
-
+          // For server files, check if there's a built version in dist
+          else if (baseName.endsWith('.js')) {
+            // First, check if it's one of the standard server files
+            const serverDistBase = path.resolve(__dirname, 'server/dist');
+            const serverFilePath = `${serverDistBase}/${baseName}`;
+            const serverRelativePath = baseName.replace('.js', '');
+            
+            // Try different patterns to find the file - direct match, nested in subfolder
+            const possiblePaths = [
+              serverFilePath,
+              `${serverDistBase}/${serverRelativePath}.js`,
+              `${serverDistBase}/${serverRelativePath}/index.js`
+            ];
+            
+            // For known files in subfolders, add those possibilities
+            if (serverRelativePath.indexOf('/') === -1) {
+              // For standard modules without subfolder in name, check different subfolders
+              ['config', 'routes', 'utils', 'middleware'].forEach(subfolder => {
+                possiblePaths.push(`${serverDistBase}/${subfolder}/${serverRelativePath}.js`);
+              });
+            }
+            
+            // Try finding the file
+            let foundPath = null;
+            for (const testPath of possiblePaths) {
+              if (fs.existsSync(testPath)) {
+                foundPath = testPath;
+                break;
+              }
+            }
+            
+            if (foundPath) {
+              console.log(`Reading server file from: ${foundPath}`);
+              fileContent = fs.readFileSync(foundPath, 'utf-8');
+            } else {
+              console.log(`No server dist file found for ${baseName}, using asset file`);
+            }
+          }
+          
           // Return the file content as a string
           return {
             code: `export default ${JSON.stringify(fileContent)};`,
