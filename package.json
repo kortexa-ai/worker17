@@ -19,18 +19,21 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
+    "dev:wc": "node scripts/build-server.js && vite --mode webcontainer",
     "clean": "rm -rf dist dev-dist lib build coverage data src/date server/data",
     "lint": "eslint . --report-unused-disable-directives --no-error-on-unmatched-pattern",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "build": "vite build --mode production",
+    "build:wc": "node scripts/build-server.js && vite build --mode webcontainer",
     "validate": "npm run typecheck && npm run lint && npm run test",
     "coverage": "vitest run --coverage",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:ci": "vitest run --coverage --reporter=json --outputFile=build/test-results.json",
     "inspect": "npx @modelcontextprotocol/inspector",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:wc": "vite preview --mode webcontainer"
   },
   "dependencies": {
     "@icons-pack/react-simple-icons": "^12.2.0",

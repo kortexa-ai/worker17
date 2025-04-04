@@ -36,6 +36,23 @@ npm install
 npm start
 ```
 
+### WebContainer Mode
+
+For development and demo purposes, you can run the server directly in the browser using WebContainer:
+
+```bash
+# Development with WebContainer (builds server automatically)
+npm run dev:wc
+
+# Build for production with WebContainer
+npm run build:wc
+
+# Preview the production build with WebContainer
+npm run preview:wc
+```
+
+This mode automatically builds the server code and runs it in a browser-based Node.js environment, eliminating the need for a separate server process.
+
 ### Docker
 
 You can also run the system using Docker:
