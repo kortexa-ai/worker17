@@ -31,6 +31,9 @@ interface WebContainerProviderProps {
   autoStart?: boolean;
   onServerStarted?: (url: string) => void;
   onError?: (error: Error) => void;
+  port?: number;
+  nodeEnv?: string;
+  serverOptions?: Record<string, string>;
 }
 
 // WebContainer Provider Component
@@ -38,7 +41,10 @@ export function WebContainerProvider({
   children, 
   autoStart = true,
   onServerStarted: parentOnServerStarted,
-  onError: parentOnError
+  onError: parentOnError,
+  port,
+  nodeEnv,
+  serverOptions
 }: WebContainerProviderProps) {
   const [state, setState] = useState<WebContainerContextState>({
     isLoaded: false,
@@ -107,6 +113,9 @@ export function WebContainerProvider({
           onReady={handleContainerReady}
           onServerStarted={handleServerStarted}
           onError={handleError}
+          port={port}
+          nodeEnv={nodeEnv}
+          serverOptions={serverOptions}
         />
       )}
       {children}

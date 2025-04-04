@@ -4,9 +4,17 @@ import { Button } from './ui/button';
 
 interface WebContainerToggleProps {
   children: React.ReactNode;
+  port?: number;
+  nodeEnv?: string;
+  serverOptions?: Record<string, string>;
 }
 
-export function WebContainerToggle({ children }: WebContainerToggleProps) {
+export function WebContainerToggle({ 
+  children, 
+  port = 4000,
+  nodeEnv = 'development',
+  serverOptions = {}
+}: WebContainerToggleProps) {
   const [useWebContainer, setUseWebContainer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,6 +46,12 @@ export function WebContainerToggle({ children }: WebContainerToggleProps) {
       {useWebContainer ? (
         <WebContainerProvider
           autoStart
+          port={port}
+          nodeEnv={nodeEnv}
+          serverOptions={{
+            ...serverOptions,
+            WEBCONTAINER: 'true' 
+          }}
           onServerStarted={() => setIsLoading(false)}
           onError={() => {
             setIsLoading(false);

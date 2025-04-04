@@ -9,12 +9,18 @@ export interface WebContainerComponentProps {
   onReady?: (container: WebContainer) => void;
   onServerStarted?: (url: string) => void;
   onError?: (error: Error) => void;
+  port?: number;
+  nodeEnv?: string;
+  serverOptions?: Record<string, string>;
 }
 
 export function WebContainerComponent({
   onReady,
   onServerStarted,
-  onError
+  onError,
+  port = 4000,
+  nodeEnv = 'development',
+  serverOptions = {}
 }: WebContainerComponentProps) {
   const [, setIsLoading] = useState(true);
   const [, setIsRunning] = useState(false);
@@ -44,6 +50,14 @@ export function WebContainerComponent({
         // Boot the WebContainer
         const container = await WebContainer.boot();
         containerRef.current = container;
+        
+        // Set environment variables
+        await container.setEnvironmentVariables({
+          NODE_ENV: nodeEnv,
+          PORT: port.toString(),
+          WEBCONTAINER: 'true',
+          ...serverOptions
+        });
 
         // Mount the server files
         await container.mount(serverFiles);
@@ -81,7 +95,8 @@ export function WebContainerComponent({
 
               // Check if server started message is in the output
               if (data.includes('Server running at')) {
-                const url = 'http://localhost:4000';
+                const serverUrlMatch = data.match(/Server running at (http:\/\/[^:]+:(\d+))/);
+                const url = serverUrlMatch ? serverUrlMatch[1] : `http://localhost:${port}`;
                 setServerUrl(url);
                 setIsRunning(true);
                 setIsLoading(false);

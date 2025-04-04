@@ -8,6 +8,8 @@ import cors from 'cors';
 
 const app = express();
 const nodeEnv = process.env.NODE_ENV || 'development';
+const PORT = process.env.PORT || 4000;
+const isWebContainer = process.env.WEBCONTAINER === 'true';
 
 // Set up CORS
 app.use(cors({ 
@@ -26,7 +28,9 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     time: new Date().toISOString(),
-    environment: 'webcontainer'
+    environment: nodeEnv,
+    webcontainer: isWebContainer,
+    port: PORT
   });
 });
 
@@ -347,8 +351,7 @@ setSseRoutes(app);
 setSocketRoutes(wsApp);
 
 // Start the server
-const PORT = 4000;
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Environment: ${nodeEnv} (WebContainer)`);
+  console.log(`Environment: ${nodeEnv}${isWebContainer ? ' (WebContainer)' : ''}`);
 });
