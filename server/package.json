@@ -20,7 +20,7 @@
   "scripts": {
     "start": "nodemon --watch src --exec 'tsx' src/server.ts",
     "dev": "nodemon --watch src --exec 'tsx' src/server.ts",
-    "clean": "rm -rf dist dev-dist lib build coverage data src/date server/data",
+    "clean": "rm -rf dist dev-dist lib build coverage data src/data server/data",
     "lint": "eslint . --report-unused-disable-directives --no-error-on-unmatched-pattern",
     "lint:fix": "npm run lint -- --fix",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
