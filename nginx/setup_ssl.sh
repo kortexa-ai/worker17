@@ -160,6 +160,9 @@ fi
 # Install certbot if not present
 install_certbot
 
+# Check if nginx is running
+check_nginx
+
 # Ask for email if not already set
 if [ -z "$EMAIL" ]; then
     read -p "Enter email for Let's Encrypt notifications: " EMAIL
@@ -175,9 +178,6 @@ done
 
 # Set up auto-renewal
 setup_renewal
-
-# Check if nginx is running
-check_nginx
 
 echo -e "\n${GREEN}=== SSL Setup Complete ===${NC}"
 echo "Your site is now secured with Let's Encrypt!"
