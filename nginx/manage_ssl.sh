@@ -47,26 +47,43 @@ process_config() {
     local config_file="$1"
     echo -e "\n${GREEN}Processing: $(basename "$config_file")${NC}"
 
-    # Debug: Show raw server blocks
-    echo -e "${YELLOW}Debug - Raw server blocks in $config_file:${NC}"
-    grep -A 5 '^[[:space:]]*server[[:space:]]*{' "$config_file" || echo "No server blocks found"
-
-    # Extract all server names and their ports
-    local servers_info=$(grep -A 5 '^[[:space:]]*server[[:space:]]*{' "$config_file" | \
-        awk '/server_name/ {name=$0; getline; if (/listen/) {print name " " $0}}' | \
-        sed -e 's/server_name[[:space:]]*//' -e 's/;//g' -e 's/listen[[:space:]]*//' -e 's/[[:space:]]*ssl[[:space:]]*//g' -e 's/;.*//')
-
-    # Debug: Show parsed server info
-    echo -e "${YELLOW}Debug - Parsed server info:${NC}"
+    # Debug: Show raw config file
+    echo -e "${YELLOW}Debug - Raw config file content:${NC}"
+    cat "$config_file"
+    
+    # Extract server_name and listen directives using awk
+    echo -e "${YELLOW}Debug - Extracting server info...${NC}"
+    
+    # First, try to get server_name and listen in order
+    servers_info=$(awk '
+    /^\s*server\s*{/,/^\s*}/ {
+        if ($1 == "server_name") {
+            gsub(";", "", $0)
+            server_name = $2
+            # Look for the next listen directive
+            while ((getline > 0) && !/listen/) {
+                if ($1 == "server_name") {
+                    gsub(";", "", $0)
+                    server_name = $2
+                }
+            }
+            if (/listen/) {
+                listen = $2
+                gsub(";", "", listen)
+                print server_name " " listen
+            }
+        }
+    }' "$config_file")
+    
+    # If that didn't work, try a simpler approach
     if [ -z "$servers_info" ]; then
-        echo "No server info could be parsed"
-        echo -e "${YELLOW}Debug - Attempting alternative parsing method...${NC}"
-        # Alternative parsing method
-        servers_info=$(awk '/server_name/ {name=$0; while (getline && !/listen/) {}; if (/listen/) {gsub(/server_name|[;,]/, "", name); gsub(/listen|[;,]/, "", $0); print name $0}}' "$config_file")
-        echo "Alternative parse: $servers_info"
-    else
-        echo "$servers_info"
+        echo -e "${YELLOW}Debug - Trying alternative parsing method...${NC}"
+        servers_info=$(grep -E 'server_name|listen' "$config_file" | tr '\n' ' ' | sed 's/;/;\n/g' | \
+            awk '/server_name/ && /listen/ {print $2 " " $4}' | tr -d ';')
     fi
+    
+    echo -e "${YELLOW}Debug - Found servers:${NC}"
+    echo "$servers_info"
 
     local updated=0
 
