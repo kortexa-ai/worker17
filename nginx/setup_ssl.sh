@@ -22,7 +22,7 @@ if [ ${#NGINX_CONFIGS[@]} -eq 0 ]; then
 fi
 
 # Configuration
-EMAIL="admin@kortexa.ai"  # Change this to your email
+EMAIL="admin@kortexa.ai" # Change this to your email
 NGINX_DIR="/etc/nginx"
 
 # Function to extract all server names from Nginx config files
@@ -38,7 +38,7 @@ extract_domains() {
             fi
         done < <(grep -h '^\s*server_name\b' "$config" 2>/dev/null || true)
     done
-    
+
     # Remove duplicates and return
     printf "%s\n" "${domains[@]}" | sort -u
 }
@@ -51,7 +51,7 @@ fi
 
 # Function to install certbot if not present
 install_certbot() {
-    if ! command -v certbot &> /dev/null; then
+    if ! command -v certbot &>/dev/null; then
         echo -e "${YELLOW}Certbot not found. Installing...${NC}"
 
         # Detect package manager and install certbot
@@ -88,9 +88,9 @@ obtain_certificate() {
     local domain=$1
     local email=$2
     local cert_opts=()
-    
+
     echo -e "\n${YELLOW}Processing SSL certificate for $domain...${NC}"
-    
+
     # Check if certificate already exists
     if certificate_exists "$domain"; then
         echo -e "${YELLOW}Certificate for $domain already exists. Attempting to update registration...${NC}"
@@ -99,10 +99,10 @@ obtain_certificate() {
         echo -e "${YELLOW}Obtaining new certificate for $domain...${NC}"
         cert_opts+=(--email "$email")
     fi
-    
+
     # Common certbot options
     cert_opts+=(--nginx --non-interactive --agree-tos --redirect --no-eff-email)
-    
+
     # Run certbot
     if certbot "${cert_opts[@]}" -d "$domain"; then
         echo -e "${GREEN}✓ SSL certificate for $domain processed successfully${NC}"
@@ -118,7 +118,10 @@ setup_renewal() {
     echo -e "\n${YELLOW}Setting up auto-renewal...${NC}"
 
     # Add a cron job to renew the certificate if it's due for renewal
-    (crontab -l 2>/dev/null; echo "0 0,12 * * * root /usr/bin/certbot renew --quiet") | crontab -
+    (
+        crontab -l 2>/dev/null
+        echo "0 0,12 * * * root /usr/bin/certbot renew --quiet"
+    ) | crontab -
 
     # Test renewal process
     certbot renew --dry-run
@@ -157,9 +160,6 @@ fi
 # Install certbot if not present
 install_certbot
 
-# Check if nginx is running
-check_nginx
-
 # Ask for email if not already set
 if [ -z "$EMAIL" ]; then
     read -p "Enter email for Let's Encrypt notifications: " EMAIL
@@ -175,6 +175,9 @@ done
 
 # Set up auto-renewal
 setup_renewal
+
+# Check if nginx is running
+check_nginx
 
 echo -e "\n${GREEN}=== SSL Setup Complete ===${NC}"
 echo "Your site is now secured with Let's Encrypt!"
