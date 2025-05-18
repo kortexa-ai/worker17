@@ -25,6 +25,8 @@ install_certbot() {
         echo -e "${YELLOW}Certbot not found. Installing...${NC}"
 
         # Detect package manager and install certbot
+        # use snap to install certbot on ubuntu, don't use apt
+        # no other systems supported for now
         if [ -f /etc/debian_version ]; then
             sudo snap install certbot --classic
         else
@@ -32,102 +34,6 @@ install_certbot() {
             echo "Visit: https://certbot.eff.org/instructions"
             exit 1
         fi
-    fi
-}
-
-# Function to check if domain is managed by certbot
-is_certbot_managed() {
-    local domain="$1"
-    certbot certificates 2>/dev/null | grep -q "Domains:.*$domain"
-    return $?
-}
-
-# Function to process a single config file
-process_config() {
-    local config_file="$1"
-    echo -e "\n${GREEN}Processing: $(basename "$config_file")${NC}"
-
-    # Debug: Show raw config file
-    echo -e "${YELLOW}Debug - Raw config file content:${NC}"
-    cat "$config_file"
-    
-    # Extract server_name and listen directives using awk
-    echo -e "${YELLOW}Debug - Extracting server info...${NC}"
-    
-    # First, try to get server_name and listen in order
-    servers_info=$(awk '
-    /^\s*server\s*{/,/^\s*}/ {
-        if ($1 == "server_name") {
-            gsub(";", "", $0)
-            server_name = $2
-            # Look for the next listen directive
-            while ((getline > 0) && !/listen/) {
-                if ($1 == "server_name") {
-                    gsub(";", "", $0)
-                    server_name = $2
-                }
-            }
-            if (/listen/) {
-                listen = $2
-                gsub(";", "", listen)
-                print server_name " " listen
-            }
-        }
-    }' "$config_file")
-    
-    # If that didn't work, try a simpler approach
-    if [ -z "$servers_info" ]; then
-        echo -e "${YELLOW}Debug - Trying alternative parsing method...${NC}"
-        servers_info=$(grep -E 'server_name|listen' "$config_file" | tr '\n' ' ' | sed 's/;/;\n/g' | \
-            awk '/server_name/ && /listen/ {print $2 " " $4}' | tr -d ';')
-    fi
-    
-    echo -e "${YELLOW}Debug - Found servers:${NC}"
-    echo "$servers_info"
-
-    local updated=0
-
-    while IFS= read -r line; do
-        if [ -z "$line" ]; then continue; fi
-
-        local domain=$(echo "$line" | awk '{print $1}')
-        local port=$(echo "$line" | awk '{print $2}')
-
-        echo -e "\n${YELLOW}Found server: $domain (port $port)${NC}"
-
-        # Process based on port
-        if [ "$port" = "443" ]; then
-            if is_certbot_managed "$domain"; then
-                echo -e "${GREEN}✓ Certificate for $domain is already managed by Certbot${NC}"
-            else
-                echo -e "${YELLOW}Certificate for $domain is not managed by Certbot. Renewing...${NC}"
-                if sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" --redirect -d "$domain"; then
-                    echo -e "${GREEN}✓ Successfully renewed certificate for $domain${NC}"
-                    updated=1
-                else
-                    echo -e "${RED}Failed to renew certificate for $domain${NC}"
-                fi
-            fi
-        elif [ "$port" = "80" ]; then
-            echo -e "${YELLOW}Issuing new certificate for $domain...${NC}"
-            if sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" --redirect -d "$domain"; then
-                echo -e "${GREEN}✓ Successfully issued certificate for $domain${NC}"
-                updated=1
-            else
-                echo -e "${RED}Failed to issue certificate for $domain${NC}"
-            fi
-        fi
-    done <<<"$servers_info"
-
-    if [ "$updated" = "1" ]; then
-        echo -e "\n${YELLOW}Configuration was updated. Testing Nginx config...${NC}"
-        if ! sudo nginx -t; then
-            echo -e "${RED}Error in Nginx configuration. Please check the config file.${NC}"
-            return 1
-        fi
-
-        echo -e "${GREEN}Reloading Nginx to apply changes...${NC}"
-        sudo systemctl reload nginx
     fi
 }
 
@@ -139,10 +45,41 @@ install_certbot
 
 # Process each config file
 echo -e "${YELLOW}Scanning for Nginx configuration files in $SCRIPT_DIR...${NC}"
-echo -e "${YELLOW}Found config files:${NC}"
-find "$SCRIPT_DIR" -maxdepth 1 -name '*.conf' ! -name '_*' -type f -ls
+
 find "$SCRIPT_DIR" -maxdepth 1 -name '*.conf' ! -name '_*' -type f | while read -r config_file; do
-    process_config "$config_file"
+    echo -e "\n${GREEN}Processing: $(basename "$config_file")${NC}"
+
+    # Extract domain from server_name
+    domain=$(grep -oP 'server_name\s+\K[^; ]+' "$config_file" | head -1)
+
+    if [ -z "$domain" ]; then
+        echo -e "${YELLOW}No domain found in $config_file, skipping...${NC}"
+        continue
+    fi
+
+    echo -e "Found domain: $domain"
+
+    # Check if it's HTTP (port 80) or HTTPS (port 443)
+    if grep -q 'listen\s*80' "$config_file"; then
+        echo -e "${YELLOW}HTTP server detected, issuing new certificate...${NC}"
+        if sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" --redirect -d "$domain"; then
+            echo -e "${GREEN}✓ Successfully issued certificate for $domain${NC}"
+        else
+            echo -e "${RED}Failed to issue certificate for $domain${NC}"
+        fi
+    elif grep -q 'listen\s*443' "$config_file"; then
+        echo -e "${YELLOW}HTTPS server detected, checking certificate...${NC}"
+        if certbot certificates 2>/dev/null | grep -q "Domains:.*$domain"; then
+            echo -e "${GREEN}✓ Certificate for $domain is already managed by Certbot${NC}"
+        else
+            echo -e "${YELLOW}Certificate not managed by Certbot, renewing...${NC}"
+            if sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" --redirect -d "$domain"; then
+                echo -e "${GREEN}✓ Successfully renewed certificate for $domain${NC}"
+            else
+                echo -e "${RED}Failed to renew certificate for $domain${NC}"
+            fi
+        fi
+    fi
 done
 
 # Set up auto-renewal if not already set up
