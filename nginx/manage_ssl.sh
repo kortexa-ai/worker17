@@ -49,16 +49,24 @@ process_config() {
 
     # Debug: Show raw server blocks
     echo -e "${YELLOW}Debug - Raw server blocks in $config_file:${NC}"
-    grep -A 5 -P '^\s*server\s*\{' "$config_file" || echo "No server blocks found"
+    grep -A 5 '^[[:space:]]*server[[:space:]]*{' "$config_file" || echo "No server blocks found"
 
     # Extract all server names and their ports
-    local servers_info=$(grep -A 5 -P '^\s*server\s*\{' "$config_file" |
-        awk '/server_name/ {name=$0; getline; if (/listen/) {print name " " $0}}' |
-        sed -e 's/server_name\s*//' -e 's/;//g' -e 's/listen\s*//' -e 's/\s*ssl\s*//' -e 's/;.*//')
+    local servers_info=$(grep -A 5 '^[[:space:]]*server[[:space:]]*{' "$config_file" | \
+        awk '/server_name/ {name=$0; getline; if (/listen/) {print name " " $0}}' | \
+        sed -e 's/server_name[[:space:]]*//' -e 's/;//g' -e 's/listen[[:space:]]*//' -e 's/[[:space:]]*ssl[[:space:]]*//g' -e 's/;.*//')
 
     # Debug: Show parsed server info
     echo -e "${YELLOW}Debug - Parsed server info:${NC}"
-    echo "$servers_info" || echo "No server info could be parsed"
+    if [ -z "$servers_info" ]; then
+        echo "No server info could be parsed"
+        echo -e "${YELLOW}Debug - Attempting alternative parsing method...${NC}"
+        # Alternative parsing method
+        servers_info=$(awk '/server_name/ {name=$0; while (getline && !/listen/) {}; if (/listen/) {gsub(/server_name|[;,]/, "", name); gsub(/listen|[;,]/, "", $0); print name $0}}' "$config_file")
+        echo "Alternative parse: $servers_info"
+    else
+        echo "$servers_info"
+    fi
 
     local updated=0
 
