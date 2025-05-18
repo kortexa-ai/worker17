@@ -37,65 +37,115 @@ install_certbot() {
     fi
 }
 
+has_valid_cert() {
+    certbot certificates --cert-name "$1" 2>/dev/null | grep -q 'VALID: 3' || return 1
+    return 0
+}
+
+update_nginx_config() {
+    local config_file="$1"
+    local domain="$2"
+
+    echo -e "${YELLOW}Processing: $config_file (domain: $domain)${NC}"
+
+    # Check if this is an HTTP or HTTPS server block
+    if grep -q "listen\s*443" "$config_file"; then
+        # Update existing HTTPS config
+        echo -e "${YELLOW}Updating HTTPS config${NC}"
+
+        # Ensure cert exists
+        if ! has_valid_cert "$domain"; then
+            echo -e "${YELLOW}Getting certificate...${NC}"
+            certbot certonly --webroot -w /var/www/html -d "$domain" --non-interactive --agree-tos --email "$EMAIL" || return 1
+        fi
+
+        # Remove existing SSL directives if any
+        sudo sed -i -e '/ssl_certificate/d' -e '/ssl_certificate_key/d' -e '/listen.*ssl/d' "$config_file"
+
+        # Add listen directives before server_name
+        sudo sed -i "/^\s*server_name/i \    listen 443 ssl;" "$config_file"
+        sudo sed -i "/^\s*server_name/i \    listen [::]:443 ssl;" "$config_file"
+
+        # Add SSL directives after server_name
+        sudo sed -i "/^\s*server_name/a \    ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;" "$config_file"
+        sudo sed -i "/^\s*server_name/a \    ssl_certificate /etc/letsencrypt/live/$domain/fullchain.pem;" "$config_file"
+
+    elif grep -q "listen\s*80" "$config_file"; then
+        # Convert HTTP to HTTPS
+        echo -e "${YELLOW}Converting HTTP to HTTPS${NC}"
+
+        # Get certificate
+        if ! has_valid_cert "$domain"; then
+            echo -e "${YELLOW}Getting certificate...${NC}"
+            certbot certonly --webroot -w /var/www/html -d "$domain" --non-interactive --agree-tos --email "$EMAIL" || return 1
+        fi
+
+        # Remove existing SSL directives if any
+        sudo sed -i -e '/ssl_certificate/d' -e '/ssl_certificate_key/d' -e '/listen.*ssl/d' "$config_file"
+
+        # Update ports (80 → 443 ssl)
+        sudo sed -i -e 's/listen\s*80/listen 443 ssl/' \
+                   -e 's/listen\s*\[::\]:80/listen [::]:443 ssl/' "$config_file"
+
+        # Add SSL directives after server_name
+        sudo sed -i "/^\s*server_name/a \    ssl_certificate_key /etc/letsencrypt/live/$domain/privkey.pem;" "$config_file"
+        sudo sed -i "/^\s*server_name/a \    ssl_certificate /etc/letsencrypt/live/$domain/fullchain.pem;" "$config_file"
+    else
+        echo -e "${YELLOW}No HTTP/HTTPS server block found, skipping${NC}"
+        return 0
+    fi
+
+    # Test and reload Nginx if running
+    if nginx -t; then
+        if systemctl is-active --quiet nginx; then
+            systemctl reload nginx
+            echo -e "${GREEN}✓ Nginx reloaded${NC}"
+        else
+            echo -e "${YELLOW}Nginx is not running. Config test passed but not reloaded.${NC}"
+        fi
+    else
+        echo -e "${RED}Nginx config test failed${NC}"
+        return 1
+    fi
+}
+
+process_nginx_config() {
+    local config_file="$1"
+    local domain
+
+    # Extract first non-localhost domain
+    domain=$(grep -oP 'server_name\s+\K[^; ]+' "$config_file" | grep -v '^_\|localhost\|127.\|\[' | head -1)
+    [ -z "$domain" ] && return 0
+
+    update_nginx_config "$config_file" "$domain"
+}
+
 # Main execution
 echo -e "${GREEN}=== Starting SSL Certificate Management ===${NC}"
 
-# Install certbot if not present
+
+# Check root
+[ "$EUID" -ne 0 ] && { echo -e "${RED}Run with sudo${NC}"; exit 1; }
+
 install_certbot
 
+# Create well-known directory if it doesn't exist
+if [ ! -d /var/www/html/.well-known/acme-challenge ]; then
+    mkdir -p /var/www/html/.well-known/acme-challenge
+    chown -R www-data:www-data /var/www/html/.well-known
+fi
+
+# Process configs
 # Process each config file
 echo -e "${YELLOW}Scanning for Nginx configuration files in $SCRIPT_DIR...${NC}"
 
-find "$SCRIPT_DIR" -maxdepth 1 -name '*.conf' ! -name '_*' -type f | while read -r config_file; do
-    echo -e "\n${GREEN}Processing: $(basename "$config_file")${NC}"
-
-    # Extract domain from server_name
-    domain=$(grep -oP 'server_name\s+\K[^; ]+' "$config_file" | head -1)
-
-    if [ -z "$domain" ]; then
-        echo -e "${YELLOW}No domain found in $config_file, skipping...${NC}"
-        continue
-    fi
-
-    echo -e "Found domain: $domain"
-
-    # Check if it's HTTP (port 80) or HTTPS (port 443)
-    if grep -q 'listen\s*80' "$config_file"; then
-        echo -e "${YELLOW}HTTP server detected, issuing new certificate...${NC}"
-        if sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" --redirect -d "$domain"; then
-            echo -e "${GREEN}✓ Successfully issued certificate for $domain${NC}"
-        else
-            echo -e "${RED}Failed to issue certificate for $domain${NC}"
-        fi
-    elif grep -q 'listen\s*443' "$config_file"; then
-        echo -e "${YELLOW}HTTPS server detected, checking certificate...${NC}"
-        if certbot certificates 2>/dev/null | grep -q "Domains:.*$domain"; then
-            echo -e "${GREEN}✓ Certificate for $domain is already managed by Certbot${NC}"
-        else
-            echo -e "${YELLOW}Certificate not managed by Certbot, renewing...${NC}"
-            if sudo certbot --nginx --non-interactive --agree-tos --email "$EMAIL" --redirect -d "$domain"; then
-                echo -e "${GREEN}✓ Successfully renewed certificate for $domain${NC}"
-            else
-                echo -e "${RED}Failed to renew certificate for $domain${NC}"
-            fi
-        fi
-    fi
+find "$SCRIPT_DIR" -maxdepth 1 -name '*.conf' ! -name '_*' -type f | while read -r f; do
+    process_nginx_config "$f"
 done
 
-# Set up auto-renewal if not already set up
-if ! crontab -l 2>/dev/null | grep -q '/usr/bin/certbot renew'; then
-    echo -e "\n${YELLOW}Setting up auto-renewal...${NC}"
-    (
-        crontab -l 2>/dev/null
-        echo "0 0,12 * * * root /usr/bin/certbot renew --quiet"
-    ) | sudo crontab -
-
-    echo -e "${YELLOW}Testing certificate renewal...${NC}"
-    if sudo certbot renew --dry-run; then
-        echo -e "${GREEN}✓ Auto-renewal set up successfully${NC}"
-    else
-        echo -e "${YELLOW}Auto-renewal test failed. Please check certbot logs.${NC}"
-    fi
-fi
-
-echo -e "\n${GREEN}=== SSL Certificate Management Complete ===${NC}"
+# Set up auto-renewal if not exists
+[ -f /etc/cron.d/certbot ] || {
+    echo "0 0,12 * * * root $(which certbot) renew --quiet --deploy-hook 'systemctl reload nginx'" \
+        | sudo tee /etc/cron.d/certbot > /dev/null
+    echo -e "${GREEN}✓ Auto-renewal set up${NC}"
+}
