@@ -72,7 +72,6 @@ async function runPreBuild() {
                     console.log(`  ${consoleStyles.success('•')} ${consoleStyles.successProject(projectsToBuild[i].name)}`);
                 }
             });
-            console.log('');  // Add spacing after success list
         }
 
         if (failedCount > 0) {

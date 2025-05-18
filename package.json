@@ -1,7 +1,7 @@
 {
     "name": "@kortexa-ai/worker17",
     "version": "0.1.0",
-    "description": "Worker17 MCP Server",
+    "description": "Worker17",
     "copyright": "Copyright © 2025 kortexa.ai",
     "author": {
         "name": "Franci Penov",
@@ -19,13 +19,17 @@
     "scripts": {
         "start": "vite",
         "dev": "vite",
-        "clean": "rm -rf dist dev-dist lib build coverage data src/data server/data",
+        "clean": "rm -rf dist dev-dist lib build coverage data server/data",
         "lint": "eslint . --report-unused-disable-directives --no-error-on-unmatched-pattern",
         "lint:fix": "npm run lint -- --fix",
         "typecheck": "tsc -p tsconfig.app.json --noEmit",
         "build": "vite build --mode production",
-        "validate": "npm run typecheck && npm run lint && npm run test",
-        "preview": "vite preview"
+        "validate": "npm run typecheck && npm run lint",
+        "preview": "vite preview",
+        "update": "git pull && npm install && npm install && npm run build && git add -A && git commit -m \"Deps version bump\" && git push",
+        "deploy": "git pull && rm -rf node_modules && rm package-lock.json && npm run clean && npm install && npm run build && git add -A && git commit -m \"Fixing deps install\" || true && git push ",
+        "postinstall": "tsx scripts/postinstall.ts",
+        "prebuild": "tsx scripts/prebuild.ts"
     },
     "dependencies": {
         "@icons-pack/react-simple-icons": "^12.8.0",
@@ -59,7 +63,7 @@
         "@types/three": "^0.176.0",
         "@vitejs/plugin-react-swc": "^3.9.0",
         "eslint": "^9.27.0",
-        "eslint-import-resolver-typescript": "^4.3.4",
+        "eslint-import-resolver-typescript": "^4.3.5",
         "eslint-plugin-import": "^2.31.0",
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
