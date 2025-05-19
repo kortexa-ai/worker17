@@ -1,16 +1,18 @@
 Requirements for certbot ssl management script
 
 The goal of the script is to update nginx configs to use certbot managed ssl certs
-The nginx configs that need to be updated are in the same directory as the script
-The script should not attempt to update configs that are not in the same directory
+The nginx configs that need to be updated are in the pwd, or if there aren't any in pwd,
+look in the same directory as the script
+The script should not attempt to update configs that are not in these two locations
 All configs that the script attempts to update are assumed to have been previously
 included by nginx
 The script should have detailed colored output to make understanding all the steps
 of the process easy
 
 1. Find Configs:
- - Validate nginx config to ensure we start from good state
+ - Test full Nginx config to ensure we start from good state
  - Locate all .conf files in the current directory
+    - If there are none, look in the same directory as the script
  - Exclude any files starting with _
 2. Process Each Config:
  - For each config file, process each server block separately:
@@ -28,7 +30,7 @@ of the process easy
     - Add SSL cert configuration to the server block
 3. Finalize:
  - Set up auto-renewal for any newly issued certificate
- - Test Nginx config
+ - Test full Nginx config
  - Reload Nginx
 4. Key Points to Confirm:
  - All operations are idempotent (safe to run multiple times)
@@ -67,3 +69,15 @@ server {
 
 The result of the script processing this example should be the first block updated to use the certbot
 managed cert and the second block converted to HTTPS and a certbot managed cert added
+
+----
+Implementation requirements:
+
+1. Make simple code that is easy to understand and maintain
+2. Do not use awk or sed. Use simple matching on directive and domain names
+3. Avoid regex matching
+4. Componentize the code into small functions
+5. The script will run on Ubuntu 24, but development happens on Mac OS
+6. Do not attempt to make the script universal, or cross platform, or too defensive
+   All the scripts expected to be processed are very close to the example, with few small exceptions
+   Where couple of scripts have many locations in the server block
