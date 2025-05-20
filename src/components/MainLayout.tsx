@@ -7,37 +7,38 @@ import { Environment, OrbitControls, Box } from '@react-three/drei';
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import { Worker17 } from './Worker17';
 import { RechargeStation } from './RechargeStation';
+import { UserButton } from './UserButton';
+import { WorkerStatusPanel, type WorkerStatus, type WorkerPosition } from './WorkerStatusPanel';
 
 const PLOT_SIZE = 20;
-const RECHARGE_STATION_POSITION = [-(PLOT_SIZE/2 - 6), 0, -(PLOT_SIZE/2 - 6)] as const; // Opposite corner, more inward for the larger bed
+const RECHARGE_STATION_POSITION = {x: -(PLOT_SIZE / 2 - 6), y: 0, z: -(PLOT_SIZE / 2 - 6)}; // Opposite corner, more inward for the larger bed
 const RECHARGE_STATION_RADIUS = 2; // Radius to avoid during normal walking
 
 export function MainLayout() {
     const [, setVideoStream] = useState<MediaStream>();
     const [isWorkerWalking, setIsWorkerWalking] = useState(false);
-    const [workerPosition, setWorkerPosition] = useState<[number, number, number]>([0, 0, 0]);
-    const [workerDirection, setWorkerDirection] = useState<[number, number, number]>([0, 0, 1]);
-    const [isTerminated, setIsTerminated] = useState(false);
+    const [workerPosition, setWorkerPosition] = useState<WorkerPosition>({x: 0, y: 0, z: 0});
+    const [workerDirection, setWorkerDirection] = useState<WorkerPosition>({x: 0, y: 0, z: 1});
     const lastAngle = useRef(0);
 
     // Reference to the Three.js container for screenshots
     const threeContainerRef = useRef<ThreeContainerRef>(null);
 
     // Function to capture the current scene as an image
-    const captureWorkerImage = useCallback(() => {
-        if (threeContainerRef.current) {
-            return threeContainerRef.current.captureScreenshot();
-        }
-        return '';
-    }, []);
+    // const captureWorkerImage = useCallback(() => {
+    //     if (threeContainerRef.current) {
+    //         return threeContainerRef.current.captureScreenshot();
+    //     }
+    //     return '';
+    // }, []);
 
     // We handle the camera image request in the useEffect below
 
     // Local state for UI display
-    const [localStatus, setLocalStatus] = useState({
+    const [workerStatus, setWorkerStatus] = useState<WorkerStatus>({
         batteryLevel: 100,
-        status: 'idle' as 'idle' | 'working' | 'error' | 'offline' | 'recharging',
-        currentTask: undefined as string | undefined
+        status: 'idle',
+        currentTask: undefined
     });
 
     // Recharging state
@@ -54,34 +55,29 @@ export function MainLayout() {
     });
 
     // Current direction vector for smooth transitions
-    const directionRef = useRef({
-        x: 0,
-        z: 1
-    });
+    const directionRef = useRef<WorkerPosition>({x: 0, y: 0, z: 1});
 
     // Toggle walking state periodically for demonstration (unless terminated or recharging)
     useEffect(() => {
         // Don't toggle walking if the worker is terminated or recharging
-        if (isTerminated || isRecharging) return;
+        if (isRecharging) return;
 
         const interval = setInterval(() => {
             const newWalkingState = !isWorkerWalking;
             setIsWorkerWalking(newWalkingState);
 
             // Update status in the UI
-            setLocalStatus(prev => ({
+            setWorkerStatus(prev => ({
                 ...prev,
                 status: newWalkingState ? 'working' : 'idle'
             }));
         }, 8000); // Toggle every 8 seconds to allow more battery drain
 
         return () => clearInterval(interval);
-    }, [isTerminated, isRecharging, isWorkerWalking]);
+    }, [isRecharging, isWorkerWalking]);
 
     // Periodically drain battery while walking or recharge when at station
     useEffect(() => {
-        if (isTerminated) return;
-
         const batteryInterval = setInterval(() => {
             // Recharging mode
             if (isRecharging && !isWorkerWalking) {
@@ -93,7 +89,7 @@ export function MainLayout() {
                 batteryRef.current = newBatteryLevel;
 
                 // Update local UI state
-                setLocalStatus(prev => ({
+                setWorkerStatus(prev => ({
                     ...prev,
                     batteryLevel: newBatteryLevel,
                     currentTask: 'Recharging'
@@ -102,7 +98,7 @@ export function MainLayout() {
                 // If fully charged, allow walking again
                 if (newBatteryLevel >= 100) {
                     setIsRecharging(false);
-                    setLocalStatus(prev => ({
+                    setWorkerStatus(prev => ({
                         ...prev,
                         status: 'idle',
                         currentTask: undefined
@@ -119,7 +115,7 @@ export function MainLayout() {
                 batteryRef.current = newBatteryLevel;
 
                 // Update both the local UI state and worker state context
-                setLocalStatus(prev => ({
+                setWorkerStatus(prev => ({
                     ...prev,
                     batteryLevel: newBatteryLevel
                 }));
@@ -127,7 +123,7 @@ export function MainLayout() {
                 // If battery is depleted, go to recharge station
                 if (newBatteryLevel <= 0) {
                     setIsRecharging(true);
-                    setLocalStatus(prev => ({
+                    setWorkerStatus(prev => ({
                         ...prev,
                         status: 'recharging',
                         currentTask: 'Recharging'
@@ -140,19 +136,19 @@ export function MainLayout() {
         }, 1000); // Update every second for more visible changes
 
         return () => clearInterval(batteryInterval);
-    }, [isWorkerWalking, isRecharging, isTerminated, workerPosition]);
+    }, [isWorkerWalking, isRecharging, workerPosition]);
 
     // Move to recharge station when battery is depleted
     useEffect(() => {
-        if (!isRecharging || isWorkerWalking || isTerminated) return;
+        if (!isRecharging || isWorkerWalking) return;
 
         // Start a movement animation to the recharge station
         const moveToRechargeInterval = setInterval(() => {
             // Current position
-            const [x, y, z] = workerPosition;
+            const {x, y, z} = workerPosition;
 
             // Target position (recharge station)
-            const [targetX, , targetZ] = RECHARGE_STATION_POSITION;
+            const {x: targetX, z: targetZ} = RECHARGE_STATION_POSITION;
 
             // Calculate direction vector
             const dirX = targetX - x;
@@ -165,7 +161,7 @@ export function MainLayout() {
             if (distance < 0.5) {
                 clearInterval(moveToRechargeInterval);
                 // Start recharging
-                setLocalStatus(prev => ({
+                setWorkerStatus(prev => ({
                     ...prev,
                     currentTask: 'Recharging'
                 }));
@@ -183,23 +179,27 @@ export function MainLayout() {
             const newZ = z + normDirZ * stepSize;
 
             // Update position
-            setWorkerPosition([newX, y, newZ]);
+            setWorkerPosition({x: newX, y, z: newZ});
 
             // Update direction for the model to face
-            setWorkerDirection([normDirX, 0, normDirZ]);
+            setWorkerDirection({x: normDirX, y: 0, z: normDirZ});
 
         }, 16); // Update at 60fps for smooth movement
 
         return () => clearInterval(moveToRechargeInterval);
-    }, [isRecharging, isWorkerWalking, isTerminated, workerPosition]);
+    }, [isRecharging, isWorkerWalking, workerPosition]);
 
     // Update worker position when walking or terminated
     useEffect(() => {
-        // When starting to walk, initialize angle based on current position
-        if (isWorkerWalking) {
-            // Get the current position to calculate initial angle
-            const [x, , z] = workerPosition;
+        let moveInterval: NodeJS.Timeout;
 
+        if (isWorkerWalking) {
+            // When starting to walk, initialize angle based on current position
+
+            // Get the current position to calculate initial angle
+            const {x, z} = workerPosition;
+
+            const isTerminated = false;
             // Different animation paths for normal walking vs termination
             if (isTerminated) {
                 // For termination - run straight off the edge of the plate
@@ -209,13 +209,13 @@ export function MainLayout() {
                     // Random angle between 0 and 2π
                     const randomAngle = Math.random() * Math.PI * 2;
                     // Set initial direction toward edge
-                    setWorkerDirection([Math.cos(randomAngle), 0, Math.sin(randomAngle)]);
+                    setWorkerDirection({x: Math.cos(randomAngle), y: 0, z: Math.sin(randomAngle)});
                     lastAngle.current = randomAngle;
                 } else {
                     // Already away from origin, use current position to determine direction
                     lastAngle.current = Math.atan2(z, x);
                     // Point directly away from center
-                    setWorkerDirection([Math.cos(lastAngle.current), 0, Math.sin(lastAngle.current)]);
+                    setWorkerDirection({x: Math.cos(lastAngle.current), y: 0, z: Math.sin(lastAngle.current)});
                 }
 
                 // Reference to track the animation
@@ -224,7 +224,7 @@ export function MainLayout() {
                 const maxSpeed = 0.3; // Maximum run speed
 
                 // Run away animation - accelerate toward the edge
-                const runInterval = setInterval(() => {
+                moveInterval = setInterval(() => {
                     // Accelerate
                     speedRef.value = Math.min(speedRef.value * 1.05, maxSpeed);
 
@@ -233,38 +233,36 @@ export function MainLayout() {
                     positionRef.z += Math.sin(lastAngle.current) * speedRef.value;
 
                     // Set the new position
-                    setWorkerPosition([positionRef.x, 0, positionRef.z]);
+                    setWorkerPosition({x: positionRef.x, y: 0, z: positionRef.z});
 
                     // If we've gone far enough (well past the edge), clean up
                     const distanceFromCenter = Math.sqrt(positionRef.x * positionRef.x + positionRef.z * positionRef.z);
                     if (distanceFromCenter > PLOT_SIZE * 0.75) {
                         // Worker is gone!
-                        clearInterval(runInterval);
+                        clearInterval(moveInterval);
                     }
                 }, 16);
+            } else {
+                // Normal walking with random targets
 
-                return () => clearInterval(runInterval);
-            }
-            // Normal walking with random targets
-            else {
                 // Initialize target if needed
                 if (walkTargetRef.current.timeToChange <= 0) {
                     walkTargetRef.current = {
-                        x: Math.random() * PLOT_SIZE/2 - PLOT_SIZE/4,
-                        z: Math.random() * PLOT_SIZE/2 - PLOT_SIZE/4,
+                        x: Math.random() * PLOT_SIZE / 2 - PLOT_SIZE / 4,
+                        z: Math.random() * PLOT_SIZE / 2 - PLOT_SIZE / 4,
                         timeToChange: 200 // frames until we pick a new random target
                     };
                 }
 
                 // Start the animation with random targets
-                const walkInterval = setInterval(() => {
+                moveInterval = setInterval(() => {
                     // Update time to change target
                     walkTargetRef.current.timeToChange--;
 
                     // If it's time to change target or we're close to the current target, pick a new random target
                     const distToTarget = Math.sqrt(
-                        Math.pow(workerPosition[0] - walkTargetRef.current.x, 2) +
-                        Math.pow(workerPosition[2] - walkTargetRef.current.z, 2)
+                        Math.pow(workerPosition.x - walkTargetRef.current.x, 2) +
+                        Math.pow(workerPosition.z - walkTargetRef.current.z, 2)
                     );
 
                     if (walkTargetRef.current.timeToChange <= 0 || distToTarget < 0.5) {
@@ -275,13 +273,13 @@ export function MainLayout() {
                         let newTargetX = 0, newTargetZ = 0, distToStation = 0;
 
                         while (!validTarget && attempts < 10) {
-                            newTargetX = Math.random() * (PLOT_SIZE - 4) - (PLOT_SIZE/2 - 2);
-                            newTargetZ = Math.random() * (PLOT_SIZE - 4) - (PLOT_SIZE/2 - 2);
+                            newTargetX = Math.random() * (PLOT_SIZE - 4) - (PLOT_SIZE / 2 - 2);
+                            newTargetZ = Math.random() * (PLOT_SIZE - 4) - (PLOT_SIZE / 2 - 2);
 
                             // Check distance to recharge station
                             distToStation = Math.sqrt(
-                                Math.pow(newTargetX - RECHARGE_STATION_POSITION[0], 2) +
-                                Math.pow(newTargetZ - RECHARGE_STATION_POSITION[2], 2)
+                                Math.pow(newTargetX - RECHARGE_STATION_POSITION.x, 2) +
+                                Math.pow(newTargetZ - RECHARGE_STATION_POSITION.z, 2)
                             );
 
                             // Only accept targets with sufficient distance from recharge station
@@ -300,8 +298,8 @@ export function MainLayout() {
                     }
 
                     // Calculate direction to current target
-                    const prevX = workerPosition[0];
-                    const prevZ = workerPosition[2];
+                    const prevX = workerPosition.x;
+                    const prevZ = workerPosition.z;
                     const targetX = walkTargetRef.current.x;
                     const targetZ = walkTargetRef.current.z;
 
@@ -348,8 +346,8 @@ export function MainLayout() {
                         newZ = prevZ + smoothDirZ * stepSize;
 
                         // Check distance to recharge station
-                        const stationX = RECHARGE_STATION_POSITION[0];
-                        const stationZ = RECHARGE_STATION_POSITION[2];
+                        const stationX = RECHARGE_STATION_POSITION.x;
+                        const stationZ = RECHARGE_STATION_POSITION.z;
                         const dxStation = newX - stationX;
                         const dzStation = newZ - stationZ;
                         const distanceToStation = Math.sqrt(dxStation * dxStation + dzStation * dzStation);
@@ -372,38 +370,26 @@ export function MainLayout() {
                             }
                         }
 
-                        setWorkerPosition([newX, 0, newZ]);
-                        setWorkerDirection([smoothDirX, 0, smoothDirZ]);
+                        setWorkerPosition({x: newX, y: 0, z: newZ});
+                        setWorkerDirection({x: smoothDirX, y: 0, z: smoothDirZ});
                     }
                 }, 16); // ~60fps for smooth movement
-
-                return () => clearInterval(walkInterval);
             }
         }
-    }, [isWorkerWalking, isTerminated, workerPosition]);
+
+        return () => clearInterval(moveInterval);
+    }, [isWorkerWalking, workerPosition]);
 
     const handleVideoStream = useCallback((stream?: MediaStream) => {
         setVideoStream(stream);
     }, []);
 
     // Status indicator in top-right corner
-    const statusIndicator = (
-        <div className="absolute top-4 right-4 p-4 bg-black/70 text-white rounded">
-            <h3 className="text-lg font-bold mb-2">Worker Status</h3>
-            <div>
-                <p>ID: worker17</p>
-                <p>Status: <span className={`font-bold ${localStatus.status === 'idle' ? 'text-blue-400' : localStatus.status === 'working' ? 'text-green-400' : localStatus.status === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{localStatus.status}</span></p>
-                <p>Battery: <span className={`font-bold ${localStatus.batteryLevel > 50 ? 'text-green-400' : localStatus.batteryLevel > 20 ? 'text-yellow-400' : 'text-red-400'}`}>{localStatus.batteryLevel}%</span></p>
-                {localStatus.currentTask && <p>Task: {localStatus.currentTask}</p>}
-                <p>Position: [{workerPosition[0].toFixed(1)}, {workerPosition[1].toFixed(1)}, {workerPosition[2].toFixed(1)}]</p>
-            </div>
-        </div>
-    );
-
     return (
         <SafeViewport>
+            <UserButton />
             <Camera onStreamChange={handleVideoStream} />
-            {statusIndicator}
+            <WorkerStatusPanel status={workerStatus} position={workerPosition}/>
             <ContainerDimensions className="w-full h-full flex-1 min-h-0">
                 {({ width, height }) => (
                     <ThreeContainer
@@ -442,7 +428,7 @@ export function MainLayout() {
                                 </RigidBody>
 
                                 {/* Recharge Station Rigid Body */}
-                                <RigidBody type="fixed" position={[RECHARGE_STATION_POSITION[0], 2, RECHARGE_STATION_POSITION[2]]}>
+                                <RigidBody type="fixed" position={[RECHARGE_STATION_POSITION.x, 2, RECHARGE_STATION_POSITION.z]}>
                                     <CuboidCollider
                                         args={[8, 4, 8]}
                                     />
@@ -453,12 +439,12 @@ export function MainLayout() {
                                 position={workerPosition}
                                 isWalking={isWorkerWalking || isRecharging}
                                 direction={workerDirection}
-                                isTerminated={isTerminated}
+                                isTerminated={false}
                             />
 
                             {/* Recharge Station (Bed) model - raised position for better visibility */}
                             <RechargeStation
-                                position={[RECHARGE_STATION_POSITION[0], 0.5, RECHARGE_STATION_POSITION[2]]}
+                                position={[RECHARGE_STATION_POSITION.x, 0.5, RECHARGE_STATION_POSITION.z]}
                             />
                             <Environment preset="park" />
                         </Suspense>

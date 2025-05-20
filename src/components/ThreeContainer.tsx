@@ -6,20 +6,20 @@ import type { WebGLRendererParameters } from 'three';
 // Screenshot handler component within the Canvas
 function ScreenshotHandler({ onHandlerReady }: { onHandlerReady: (captureScreenshot: () => string) => void }) {
     const { gl, scene, camera } = useThree();
-    
+
     // Create the screenshot capture function
     const captureScreenshot = () => {
         // Force a render
         gl.render(scene, camera);
-        
+
         // Get the image data as a base64 string
         const screenshot = gl.domElement.toDataURL('image/png');
         return screenshot;
     };
-    
+
     // Provide the handler to the parent
     onHandlerReady(captureScreenshot);
-    
+
     return null;
 }
 
@@ -54,9 +54,6 @@ export const ThreeContainer = forwardRef(function ThreeContainer<DataContext ext
     // Use the actual container dimensions directly
     const currentAspect = width / height;
 
-    // Make sure we have valid dimensions
-    if (width === 0 || height === 0) return null;
-
     const screenshotRef = useRef<(() => string) | null>(null);
 
     // Setup the ref for external access
@@ -72,7 +69,7 @@ export const ThreeContainer = forwardRef(function ThreeContainer<DataContext ext
     // Handler for when the screenshot handler is ready
     const handleScreenshotHandlerReady = (captureScreenshot: () => string) => {
         screenshotRef.current = captureScreenshot;
-        
+
         // Call the external handler if provided
         if (onScreenshotHandlerReady) {
             onScreenshotHandlerReady(captureScreenshot);
@@ -87,6 +84,8 @@ export const ThreeContainer = forwardRef(function ThreeContainer<DataContext ext
         return children;
     };
 
+    // Make sure we have valid dimensions
+    if (width === 0 || height === 0) return null;
 
     return (
         <div className="relative w-full h-full">

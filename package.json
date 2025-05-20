@@ -33,7 +33,7 @@
     },
     "dependencies": {
         "@icons-pack/react-simple-icons": "^12.8.0",
-        "@kortexa-ai/auth": "^0.1.2",
+        "@kortexa-ai/auth": "^0.1.3",
         "@radix-ui/react-avatar": "^1.1.9",
         "@radix-ui/react-icons": "^1.3.2",
         "@radix-ui/react-slot": "^1.2.2",
