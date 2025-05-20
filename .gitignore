@@ -1,7 +1,9 @@
 # Common
+__pycache__/
 node_modules/
 dev-dist/
 dist/
+sdist/
 dist-ssr/
 build/
 web-build/
@@ -9,10 +11,20 @@ coverage/
 target/
 original/
 rysana/
+develop-eggs/
+downloads/
+lib/
+lib64/
+parts/
+var/
+eggs/
+.eggs/
+*.egg-info/
 .expo/
 .kotlin/
 .netlify/
 .firebase/
+.models/
 .venv/
 venv/
 .env/
@@ -22,6 +34,7 @@ env/
 *.sqlite
 *.tsbuildinfo
 expo-env.d.ts
+.ipynb_checkpoints
 .DS_Store
 
 # Certificates and environment configurations
@@ -34,6 +47,19 @@ expo-env.d.ts
 *.key
 *.pem
 *.mobileprovision
+
+# Model weights and data
+*.bin
+*.pt
+*.pth
+
+# Python
+*.py[cod]
+*.class
+*.so
+.Python
+.installed.cfg
+*.egg
 
 # Firebase
 *service-account*.json
@@ -60,3 +86,7 @@ pnpm-debug.log*
 
 # Project specific
 data/
+results/
+activations/
+weights/
+checkpoints/
