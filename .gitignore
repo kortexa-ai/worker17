@@ -4,39 +4,59 @@ dev-dist/
 dist/
 dist-ssr/
 build/
+web-build/
 coverage/
+target/
+original/
+rysana/
+.expo/
+.kotlin/
+.netlify/
 .firebase/
-.env
-.env.*
-!.env.example
+.venv/
+venv/
+.env/
+env/
 *.local
 *.db
 *.sqlite
+*.tsbuildinfo
+expo-env.d.ts
 .DS_Store
 
-# Firebase service account
+# Certificates and environment configurations
+.env
+.env.*
+!.env.example
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# Firebase
 *service-account*.json
 *serviceAccount*.json
+google-services.json
+GoogleService-Info.plist
+
+# Metro
+.metro-health-check*
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+
+# AI Coding
+**/CLAUDE.local.md
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-# Local Netlify folder
-.netlify
+# Project specific
+data/
