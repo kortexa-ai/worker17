@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
 
 type PackageJson = {
     dependencies?: Record<string, string>;
@@ -8,29 +8,33 @@ type PackageJson = {
 };
 
 export type ProjectConfig = {
-    name: string;           // Package name (e.g., '@kortexa-ai/auth')
-    directory: string;      // Directory name (relative to parent)
-    buildCommand?: string;  // Optional: custom build command (default: 'npm run build')
-    linkCommand?: string;   // Optional: custom link command (default: 'npm link --ignore-scripts')
+    name: string; // Package name (e.g., '@kortexa-ai/auth')
+    directory: string; // Directory name (relative to parent)
+    buildCommand?: string; // Optional: custom build command (default: 'npm run build')
+    linkCommand?: string; // Optional: custom link command (default: 'npm link --ignore-scripts')
 };
 
 // Shared configuration for all projects
 export const PROJECTS: ProjectConfig[] = [
     {
-        name: '@kortexa-ai/auth',
-        directory: 'auth',
+        name: "@kortexa-ai/auth",
+        directory: "auth",
     },
     {
-        name: '@kortexa-ai/react-shadertoy',
-        directory: 'react-shadertoy',
+        name: "@kortexa-ai/react-multimodal",
+        directory: "react-multimodal",
     },
     {
-        name: '@kortexa-ai-private/core',
-        directory: 'kortexa-core',
+        name: "@kortexa-ai/react-shadertoy",
+        directory: "react-shadertoy",
     },
     {
-        name: '@kortexa-ai-private/ui',
-        directory: 'kortexa-ui',
+        name: "@kortexa-ai-private/core",
+        directory: "kortexa-core",
+    },
+    {
+        name: "@kortexa-ai-private/ui",
+        directory: "kortexa-ui",
     },
 ];
 
@@ -38,30 +42,37 @@ export const PROJECTS: ProjectConfig[] = [
  * Gets the absolute path for a project directory
  */
 export function getProjectPath(project: ProjectConfig): string {
-    return resolve('..', project.directory);
+    return resolve("..", project.directory);
 }
 
 /**
  * Gets the list of project names that are actual dependencies in package.json
  */
-export function getDependentProjects(projects: ProjectConfig[]): ProjectConfig[] {
+export function getDependentProjects(
+    projects: ProjectConfig[]
+): ProjectConfig[] {
     try {
-        const packageJsonPath = resolve('./package.json');
+        const packageJsonPath = resolve("./package.json");
         if (!existsSync(packageJsonPath)) {
-            console.log('ℹ️ No package.json found, using all projects');
+            console.log("ℹ️ No package.json found, using all projects");
             return projects;
         }
 
-        const packageJson: PackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+        const packageJson: PackageJson = JSON.parse(
+            readFileSync(packageJsonPath, "utf-8")
+        );
         const allDeps = new Set([
             ...Object.keys(packageJson.dependencies || {}),
             ...Object.keys(packageJson.devDependencies || {}),
-            ...Object.keys(packageJson.peerDependencies || {})
+            ...Object.keys(packageJson.peerDependencies || {}),
         ]);
 
-        return projects.filter(project => allDeps.has(project.name));
+        return projects.filter((project) => allDeps.has(project.name));
     } catch (error) {
-        console.error('❌ Error reading package.json:', error instanceof Error ? error.message : String(error));
+        console.error(
+            "❌ Error reading package.json:",
+            error instanceof Error ? error.message : String(error)
+        );
         return projects; // Return all projects if there's an error
     }
 }
