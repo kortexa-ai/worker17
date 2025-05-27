@@ -24,6 +24,7 @@
         "lint:fix": "npm run lint -- --fix",
         "typecheck": "tsc -p tsconfig.app.json --noEmit",
         "build": "vite build --mode production",
+        "build:nomin": "vite build --mode production --minify false --sourcemap inline",
         "validate": "npm run typecheck && npm run lint",
         "preview": "vite preview",
         "update": "git pull && npm install && npm install && npm run build && git add -A && git commit -m \"Deps version bump\" && git push",

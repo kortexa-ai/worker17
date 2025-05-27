@@ -11,7 +11,6 @@ export type ProjectConfig = {
     name: string; // Package name (e.g., '@kortexa-ai/auth')
     directory: string; // Directory name (relative to parent)
     buildCommand?: string; // Optional: custom build command (default: 'npm run build')
-    linkCommand?: string; // Optional: custom link command (default: 'npm link --ignore-scripts')
 };
 
 // Shared configuration for all projects
