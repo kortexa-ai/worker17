@@ -25,8 +25,24 @@ export default defineConfig({
         esbuildOptions: {
             tsconfig: "./tsconfig.app.json",
         },
+        include: ["@kortexa-ai-private/ui > @kortexa-ai/auth"],
     },
     resolve: {
+        dedupe: [
+            "firebase",
+            "react",
+            "react-dom",
+            "three",
+            "@react-three/fiber",
+            "@react-three/drei",
+            "@react-three/rapier",
+            "@react-three/xr",
+            "@kortexa-ai/auth",
+            "@kortexa-ai/react-multimodal",
+            "@kortexa-ai/react-shadertoy",
+            "@kortexa-ai-private/core",
+            "@kortexa-ai-private/ui",
+        ],
         alias: {
             "@": path.resolve(__dirname, "./src"),
             react: path.resolve(__dirname, "./node_modules/react"),
@@ -51,13 +67,37 @@ export default defineConfig({
                         "clsx",
                         "lucide-react",
                     ],
+                    "kortexa-ai": [
+                        "@kortexa-ai/auth",
+                        "@kortexa-ai/react-multimodal",
+                        "@kortexa-ai/react-shadertoy",
+                    ],
+                    "kortexa-ai-private": [
+                        "@kortexa-ai-private/core",
+                        "@kortexa-ai-private/ui",
+                    ],
                 },
             },
         },
     },
     server: {
         host: "0.0.0.0",
-        port: parseInt(process.env.VITE_DEVSERVER_PORT ?? "8000", 10),
-        open: false,
+        port: parseInt(
+            process.env.VITE_DEVSERVER_PORT ??
+                process.env.VITE_PREVIEW_PORT ??
+                "8000",
+            10
+        ),
+        open: true,
+    },
+    preview: {
+        host: "0.0.0.0",
+        port: parseInt(
+            process.env.VITE_PREVIEW_PORT ??
+                process.env.VITE_DEVSERVER_PORT ??
+                "8000",
+            10
+        ),
+        open: true,
     },
 });
