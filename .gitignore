@@ -22,6 +22,7 @@ eggs/
 .eggs/
 *.egg-info/
 .expo/
+.next/
 .kotlin/
 .netlify/
 .firebase/
