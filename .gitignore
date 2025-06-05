@@ -14,6 +14,7 @@ rysana/
 develop-eggs/
 downloads/
 lib/
+!src/lib/
 lib64/
 parts/
 var/
