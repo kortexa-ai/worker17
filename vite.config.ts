@@ -1,4 +1,4 @@
-import path from "path";
+import path from "node:path";
 import mkcert from "vite-plugin-mkcert";
 import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
@@ -25,7 +25,12 @@ export default defineConfig({
         esbuildOptions: {
             tsconfig: "./tsconfig.app.json",
         },
-        include: ["@kortexa-ai-private/ui > @kortexa-ai/auth"],
+        include: [
+            "@kortexa-ai-private/ui > @kortexa-ai/auth",
+            "@kortexa-ai-private/ui > @kortexa-ai/react-multimodal",
+            "@kortexa-ai-private/ui > @kortexa-ai/react-shadertoy",
+            "@kortexa-ai-private/ui > @kortexa-ai-private/core",
+        ],
     },
     resolve: {
         dedupe: [
@@ -82,7 +87,7 @@ export default defineConfig({
     },
     server: {
         host: "0.0.0.0",
-        port: parseInt(
+        port: Number.parseInt(
             process.env.VITE_DEVSERVER_PORT ??
                 process.env.VITE_PREVIEW_PORT ??
                 "8000",
@@ -92,7 +97,7 @@ export default defineConfig({
     },
     preview: {
         host: "0.0.0.0",
-        port: parseInt(
+        port: Number.parseInt(
             process.env.VITE_PREVIEW_PORT ??
                 process.env.VITE_DEVSERVER_PORT ??
                 "8000",
