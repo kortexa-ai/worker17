@@ -8,21 +8,6 @@
 
         /* Runtime Environment */
         "lib": ["ESNext", "DOM", "DOM.Iterable"],
-        "types": [
-            "vite/client",
-            "react",
-            "react-dom",
-            "node"
-        ]
-    },
-    "exclude": [
-        "./src/**/*.test.ts",
-        "./src/**/*.test.tsx",
-        "./src/**/*.test.js",
-        "./src/**/*.test.jsx",
-        "./src/**/*.spec.ts", 
-        "./src/**/*.spec.tsx",
-        "./src/**/*.spec.js",
-        "./src/**/*.spec.jsx"
-    ]
+        "types": ["vite/client", "react", "react-dom", "node"]
+    }
 }

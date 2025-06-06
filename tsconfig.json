@@ -30,7 +30,15 @@
         "noUncheckedSideEffectImports": true,
         "noImplicitReturns": true
     },
-    "include": [
-        "./src/**/*"
+    "include": ["./src/**/*"],
+    "exclude": [
+        "./src/**/*.test.ts",
+        "./src/**/*.test.tsx",
+        "./src/**/*.test.js",
+        "./src/**/*.test.jsx",
+        "./src/**/*.spec.ts",
+        "./src/**/*.spec.tsx",
+        "./src/**/*.spec.js",
+        "./src/**/*.spec.jsx"
     ]
 }
