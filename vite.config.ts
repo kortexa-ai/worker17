@@ -29,12 +29,12 @@ export default defineConfig({
             "@kortexa-ai-private/ui > @kortexa-ai/auth",
             "@kortexa-ai-private/ui > @kortexa-ai/react-multimodal",
             "@kortexa-ai-private/ui > @kortexa-ai/react-shadertoy",
-            "@kortexa-ai-private/ui > @kortexa-ai-private/core",
         ],
     },
     resolve: {
         dedupe: [
             "firebase",
+            "openai",
             "react",
             "react-dom",
             "three",
@@ -45,7 +45,6 @@ export default defineConfig({
             "@kortexa-ai/auth",
             "@kortexa-ai/react-multimodal",
             "@kortexa-ai/react-shadertoy",
-            "@kortexa-ai-private/core",
             "@kortexa-ai-private/ui",
         ],
         alias: {
@@ -77,10 +76,7 @@ export default defineConfig({
                         "@kortexa-ai/react-multimodal",
                         "@kortexa-ai/react-shadertoy",
                     ],
-                    "kortexa-ai-private": [
-                        "@kortexa-ai-private/core",
-                        "@kortexa-ai-private/ui",
-                    ],
+                    "kortexa-ai-private": ["@kortexa-ai-private/ui"],
                 },
             },
         },

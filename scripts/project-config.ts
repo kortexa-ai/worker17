@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "fs";
-import { resolve } from "path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 type PackageJson = {
     dependencies?: Record<string, string>;
@@ -26,10 +26,6 @@ export const PROJECTS: ProjectConfig[] = [
     {
         name: "@kortexa-ai/react-shadertoy",
         directory: "react-shadertoy",
-    },
-    {
-        name: "@kortexa-ai-private/core",
-        directory: "kortexa-core",
     },
     {
         name: "@kortexa-ai-private/ui",

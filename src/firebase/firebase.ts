@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -11,7 +11,7 @@ const firebaseConfig = {
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
 };
 
-const app = initializeApp(firebaseConfig, 'kortexa-ai');
+const app = initializeApp(firebaseConfig, "kortexa-ai");
 const auth = getAuth(app);
 
 export { auth };
