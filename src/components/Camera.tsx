@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Camera as CameraIcon, CameraOff, SwitchCameraIcon } from 'lucide-react';
 
@@ -38,7 +38,9 @@ export function Camera({ onStreamChange, defaultCamera = 'user' }: CameraProps):
 
     const stopCamera = useCallback(() => {
         if (stream) {
-            stream.getTracks().forEach(track => { track.stop(); });
+            for (const track of stream.getTracks()) {
+                track.stop();
+            }
             setStream(null);
             onStreamChange?.();
         }
@@ -62,7 +64,9 @@ export function Camera({ onStreamChange, defaultCamera = 'user' }: CameraProps):
         // Cleanup on unmount
         return () => {
             if (stream) {
-                stream.getTracks().forEach(track => { track.stop(); });
+                for (const track of stream.getTracks()) {
+                    track.stop();
+                }
             }
         };
     }, [stream]);

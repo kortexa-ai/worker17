@@ -33,10 +33,12 @@ export function Worker17({
     // Play the appropriate animation based on state
     useEffect(() => {
         // Fade out all current animations
-        Object.values(actions).forEach(action => action?.fadeOut(0.5));
+        for (const action of Object.values(actions)) {
+            action?.fadeOut(0.5);
+        }
 
         // Choose animation based on state
-        let animationName;
+        let animationName: string;
         if (isTerminated) {
             // Use sprint animation for termination run
             animationName = AnimationNames.Sprint;
@@ -61,7 +63,9 @@ export function Worker17({
         }
 
         return () => {
-            Object.values(actions).forEach(action => action?.fadeOut(0.5));
+            for (const action of Object.values(actions)) {
+                action?.fadeOut(0.5);
+            }
         };
     }, [actions, isWalking, isTerminated, names]);
 

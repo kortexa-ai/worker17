@@ -136,7 +136,7 @@ export function MainLayout() {
         }, 1000); // Update every second for more visible changes
 
         return () => clearInterval(batteryInterval);
-    }, [isWorkerWalking, isRecharging, workerPosition]);
+    }, [isWorkerWalking, isRecharging]);
 
     // Move to recharge station when battery is depleted
     useEffect(() => {
@@ -261,8 +261,8 @@ export function MainLayout() {
 
                     // If it's time to change target or we're close to the current target, pick a new random target
                     const distToTarget = Math.sqrt(
-                        Math.pow(workerPosition.x - walkTargetRef.current.x, 2) +
-                        Math.pow(workerPosition.z - walkTargetRef.current.z, 2)
+                        (workerPosition.x - walkTargetRef.current.x)**2 +
+                        (workerPosition.z - walkTargetRef.current.z)**2
                     );
 
                     if (walkTargetRef.current.timeToChange <= 0 || distToTarget < 0.5) {
@@ -270,7 +270,9 @@ export function MainLayout() {
                         // Keep trying until we find a position far enough from the recharge station
                         let validTarget = false;
                         let attempts = 0;
-                        let newTargetX = 0, newTargetZ = 0, distToStation = 0;
+                        let newTargetX = 0;
+                        let newTargetZ = 0;
+                        let distToStation = 0;
 
                         while (!validTarget && attempts < 10) {
                             newTargetX = Math.random() * (PLOT_SIZE - 4) - (PLOT_SIZE / 2 - 2);
@@ -278,8 +280,8 @@ export function MainLayout() {
 
                             // Check distance to recharge station
                             distToStation = Math.sqrt(
-                                Math.pow(newTargetX - RECHARGE_STATION_POSITION.x, 2) +
-                                Math.pow(newTargetZ - RECHARGE_STATION_POSITION.z, 2)
+                                (newTargetX - RECHARGE_STATION_POSITION.x)**2 +
+                                (newTargetZ - RECHARGE_STATION_POSITION.z)**2
                             );
 
                             // Only accept targets with sufficient distance from recharge station
