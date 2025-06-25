@@ -8,7 +8,14 @@
 
         /* Runtime Environment */
         "lib": ["ESNext", "DOM", "DOM.Iterable"],
-        "types": ["vite/client", "react", "react-dom", "@webgpu/types", "node"],
+        "types": [
+            "vite/client",
+            "react",
+            "react-dom",
+            "@webgpu/types",
+            "node",
+            "@react-three/fiber"
+        ],
 
         /* Module Resolution */
         "moduleResolution": "bundler",
