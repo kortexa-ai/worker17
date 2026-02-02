@@ -4,7 +4,7 @@ export interface WorkerPosition {
     z: number;
 }
 
-export type WorkerStatusType = 'idle' | 'working' | 'error' | 'offline' | 'recharging';
+export type WorkerStatusType = 'idle' | 'working' | 'error' | 'offline' | 'recharging' | 'headingToStation' | 'laying';
 
 export interface WorkerStatus {
     status: WorkerStatusType;
@@ -19,7 +19,7 @@ interface WorkerStatusProps {
 
 export function WorkerStatusPanel({ status, position }: WorkerStatusProps) {
     return (
-        <div className="w-[220px] h-[120px] flex flex-col absolute top-4 right-4 p-4 bg-black/70 text-white rounded">
+        <div className="w-[220px] h-[120px] flex flex-col absolute top-4 right-4 p-4 bg-black/70 text-white rounded z-10">
             <div className="w-full h-full flex flex-col justify-center">
                 <p>ID: worker17</p>
                 <p>Status: <span className={`font-bold ${status.status === 'idle' ? 'text-blue-400' : status.status === 'working' ? 'text-green-400' : status.status === 'error' ? 'text-red-400' : 'text-gray-400'}`}>{status.status}</span></p>

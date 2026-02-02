@@ -3,20 +3,23 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import workerModelPath from '/src/assets/models/worker17.glb?url';
-import { AnimationNames } from './types';
+import { AnimationNames, type WorkerState } from './types';
 import type { WorkerPosition } from './WorkerStatusPanel';
+
+// Preload the model to avoid loading delay
+useGLTF.preload(workerModelPath);
 
 interface Worker17Props {
     position?: WorkerPosition;
-    isWalking?: boolean;
     direction?: WorkerPosition;
+    workerState?: WorkerState;
     isTerminated?: boolean;
 }
 
 export function Worker17({
     position = {x: 0, y: 0, z: 0},
-    isWalking = false,
     direction = {x: 0, y: 0, z: 0},
+    workerState = 'idle',
     isTerminated = false
 }: Worker17Props) {
     const group = useRef(null);
@@ -40,22 +43,21 @@ export function Worker17({
         // Choose animation based on state
         let animationName: string;
         if (isTerminated) {
-            // Use sprint animation for termination run
             animationName = AnimationNames.Sprint;
-        } else if (isWalking) {
-            // Normal walking animation
+        } else if (workerState === 'working' || workerState === 'headingToStation') {
             animationName = AnimationNames.Walk;
+        } else if (workerState === 'laying' || workerState === 'recharging') {
+            // Use Grounded (laying down) animation for resting
+            animationName = AnimationNames.Grounded;
         } else {
-            // Idle animation
             animationName = AnimationNames.Idle;
         }
 
         // Play the selected animation if it exists
         if (actions[animationName]) {
-            // Speed up animation if terminated
             const action = actions[animationName]?.reset().fadeIn(0.5);
             if (isTerminated) {
-                action?.setEffectiveTimeScale(1.5); // Make sprint faster
+                action?.setEffectiveTimeScale(1.5);
             }
             action?.play();
         } else {
@@ -67,18 +69,17 @@ export function Worker17({
                 action?.fadeOut(0.5);
             }
         };
-    }, [actions, isWalking, isTerminated, names]);
+    }, [actions, workerState, isTerminated, names]);
 
     // Calculate and apply rotation based on movement direction
     useFrame(() => {
-        if (group.current && isWalking) {
+        if (group.current && (workerState === 'working' || workerState === 'headingToStation')) {
             const currentPosition = new Vector3(position.x, position.y, position.z);
 
             // If we have a specified direction, use that
             if (direction) {
                 const directionVector = new Vector3(direction.x, direction.y, direction.z).normalize();
                 if (directionVector.length() > 0) {
-                    // Calculate angle from direction vector (assuming model faces +Z by default)
                     setRotation(Math.atan2(directionVector.x, directionVector.z));
                 }
             }
@@ -86,9 +87,7 @@ export function Worker17({
             else if (!currentPosition.equals(lastPosition.current)) {
                 const delta = new Vector3().subVectors(currentPosition, lastPosition.current);
 
-                // Only rotate if we've moved a meaningful amount
                 if (delta.length() > 0.01) {
-                    // Calculate angle from movement vector (assuming model faces +Z by default)
                     setRotation(Math.atan2(delta.x, delta.z));
                 }
             }
@@ -97,12 +96,22 @@ export function Worker17({
         }
     });
 
+    // When laying/recharging, rotate to align with bed
+    const isLaying = workerState === 'laying' || workerState === 'recharging';
+    const layRotation = isLaying ? Math.PI / 2 : rotation;
+
+    // When laying, position the worker on the bed surface
+    // Bed is at Y=0.5, with scale 3.2 the mattress surface is roughly at Y=1.3
+    // When rotated -90° on X, the model lays flat, so Y should be at mattress level
+    const yPosition = isLaying ? 1.3 : position.y;
+
     return (
         <group
             ref={group}
-            position={[position.x, position.y, position.z]}
-            rotation={[0, rotation, 0]}
+            position={[position.x, yPosition, position.z]}
+            rotation={[isLaying ? -Math.PI / 2 : 0, layRotation, 0]}
             dispose={null}
+            scale={[0.1, 0.1, 0.1]}
         >
             <primitive object={scene} />
         </group>

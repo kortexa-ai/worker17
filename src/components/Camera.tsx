@@ -9,15 +9,14 @@ interface CameraProps {
 
 export function Camera({ onStreamChange, defaultCamera = 'user' }: CameraProps): React.ReactElement {
     const [isOn, setIsOn] = useState(false);
-    const [facingMode, setFacingMode] = useState<'user' | 'environment'>(defaultCamera);
-    const [stream, setStream] = useState<MediaStream | null>(null);
-
-    useEffect(() => {
-        // On mobile devices, default to environment camera
+    // Initialize facingMode based on device type to avoid setState in effect
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
         if (typeof window !== 'undefined' && 'ontouchstart' in window) {
-            setFacingMode('environment');
+            return 'environment';
         }
-    }, []);
+        return defaultCamera;
+    });
+    const [stream, setStream] = useState<MediaStream | null>(null);
 
     const startCamera = useCallback(async () => {
         try {
@@ -73,6 +72,7 @@ export function Camera({ onStreamChange, defaultCamera = 'user' }: CameraProps):
 
     return (
         <>
+            <div className="absolute top-4 left-4 z-10 flex gap-2">
             <Button onClick={toggleCamera}
                 variant='default'
                 size='icon'
@@ -95,6 +95,7 @@ export function Camera({ onStreamChange, defaultCamera = 'user' }: CameraProps):
             >
                 <SwitchCameraIcon />
             </Button>
+            </div>
         </>
     );
-};
+}

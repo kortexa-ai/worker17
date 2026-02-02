@@ -10,7 +10,7 @@ export interface ContainerDimensionsProps {
 export function ContainerDimensions({ children, className = '' }: ContainerDimensionsProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-    const [observer, setObserver] = useState<ResizeObserver | null>(null);
+    const observerRef = useRef<ResizeObserver | null>(null);
 
     useEffect(() => {
         const resizeObserver = new ResizeObserver(entries => {
@@ -20,7 +20,7 @@ export function ContainerDimensions({ children, className = '' }: ContainerDimen
             setDimensions({ width, height });
         });
 
-        setObserver(resizeObserver);
+        observerRef.current = resizeObserver;
 
         return () => {
             resizeObserver.disconnect();
@@ -28,15 +28,15 @@ export function ContainerDimensions({ children, className = '' }: ContainerDimen
     }, []);
 
     useEffect(() => {
-        if (!observer || !containerRef.current) return;
+        if (!observerRef.current || !containerRef.current) return;
 
         const element = containerRef.current;
-        observer.observe(element);
+        observerRef.current.observe(element);
 
         return () => {
-            observer.unobserve(element);
+            observerRef.current?.unobserve(element);
         };
-    }, [observer]);
+    }, []);
 
     const renderContent = () => {
         if (dimensions.width === 0 || dimensions.height === 0) return null;

@@ -25,16 +25,9 @@ export default defineConfig({
         esbuildOptions: {
             tsconfig: "./tsconfig.app.json",
         },
-        include: [
-            "@kortexa-ai-private/ui > @kortexa-ai/auth",
-            "@kortexa-ai-private/ui > @kortexa-ai/react-multimodal",
-            "@kortexa-ai-private/ui > @kortexa-ai/react-shadertoy",
-        ],
     },
     resolve: {
         dedupe: [
-            "firebase",
-            "openai",
             "react",
             "react-dom",
             "three",
@@ -42,10 +35,6 @@ export default defineConfig({
             "@react-three/drei",
             "@react-three/rapier",
             "@react-three/xr",
-            "@kortexa-ai/auth",
-            "@kortexa-ai/react-multimodal",
-            "@kortexa-ai/react-shadertoy",
-            "@kortexa-ai-private/ui",
         ],
         alias: {
             "@": path.resolve(__dirname, "./src"),
@@ -71,12 +60,6 @@ export default defineConfig({
                         "clsx",
                         "lucide-react",
                     ],
-                    "kortexa-ai": [
-                        "@kortexa-ai/auth",
-                        "@kortexa-ai/react-multimodal",
-                        "@kortexa-ai/react-shadertoy",
-                    ],
-                    "kortexa-ai-private": ["@kortexa-ai-private/ui"],
                 },
             },
         },

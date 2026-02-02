@@ -15,22 +15,7 @@ export type ProjectConfig = {
 
 // Shared configuration for all projects
 export const PROJECTS: ProjectConfig[] = [
-    {
-        name: "@kortexa-ai/auth",
-        directory: "auth",
-    },
-    {
-        name: "@kortexa-ai/react-multimodal",
-        directory: "react-multimodal",
-    },
-    {
-        name: "@kortexa-ai/react-shadertoy",
-        directory: "react-shadertoy",
-    },
-    {
-        name: "@kortexa-ai-private/ui",
-        directory: "kortexa-ui",
-    },
+    // Add local project dependencies here if needed
 ];
 
 /**
