@@ -1,6 +1,13 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
+import { useGLTF } from '@react-three/drei';
 import type { Group } from 'three';
 import type { RechargeStation } from '../simulation/types';
+
+import chestPath from '/src/assets/models/platformer/chest.glb?url';
+import flagPath from '/src/assets/models/platformer/flag.glb?url';
+
+useGLTF.preload(chestPath);
+useGLTF.preload(flagPath);
 
 interface RechargeStationModelProps {
     station: RechargeStation;
@@ -8,30 +15,28 @@ interface RechargeStationModelProps {
 
 export function RechargeStationModel({ station }: RechargeStationModelProps) {
     const group = useRef<Group>(null);
+    const { scene: chestScene } = useGLTF(chestPath);
+    const { scene: flagScene } = useGLTF(flagPath);
+    const clonedChest = useMemo(() => chestScene.clone(true), [chestScene]);
+    const clonedFlag = useMemo(() => flagScene.clone(true), [flagScene]);
     const slotsUsed = station.chargingWorkerIds.length;
     const queueLength = station.queue.length;
 
     return (
         <group ref={group} position={[station.position.x, 0, station.position.z]}>
-            {/* Base pad */}
-            <mesh position={[0, 0.05, 0]} receiveShadow>
-                <boxGeometry args={[2.0, 0.1, 2.0]} />
-                <meshStandardMaterial color="#374151" />
-            </mesh>
+            {/* Chest as the main charging station */}
+            <group scale={[1.2, 1.2, 1.2]}>
+                <primitive object={clonedChest} />
+            </group>
 
-            {/* Charging pillar */}
-            <mesh position={[0, 0.75, 0]} castShadow>
-                <cylinderGeometry args={[0.2, 0.3, 1.4, 8]} />
-                <meshStandardMaterial
-                    color="#10b981"
-                    emissive="#10b981"
-                    emissiveIntensity={slotsUsed > 0 ? 0.6 : 0.2}
-                />
-            </mesh>
+            {/* Flag marker so it's visible from afar */}
+            <group position={[0.6, 0, -0.6]} scale={[0.8, 0.8, 0.8]}>
+                <primitive object={clonedFlag} />
+            </group>
 
-            {/* Charging indicator ring */}
-            <mesh position={[0, 1.5, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[0.4, 0.06, 8, 16]} />
+            {/* Charging indicator ring - glows when active */}
+            <mesh position={[0, 1.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.5, 0.06, 8, 16]} />
                 <meshStandardMaterial
                     color={slotsUsed > 0 ? '#22c55e' : '#6b7280'}
                     emissive={slotsUsed > 0 ? '#22c55e' : '#000000'}
@@ -39,25 +44,7 @@ export function RechargeStationModel({ station }: RechargeStationModelProps) {
                 />
             </mesh>
 
-            {/* Slot indicators */}
-            {Array.from({ length: station.maxSlots }).map((_, i) => {
-                const angle = (i / Math.max(station.maxSlots, 1)) * Math.PI * 2;
-                const x = Math.cos(angle) * 0.7;
-                const z = Math.sin(angle) * 0.7;
-                const occupied = i < slotsUsed;
-                return (
-                    <mesh key={i} position={[x, 0.15, z]}>
-                        <boxGeometry args={[0.3, 0.05, 0.3]} />
-                        <meshStandardMaterial
-                            color={occupied ? '#22c55e' : '#1f2937'}
-                            emissive={occupied ? '#22c55e' : '#000000'}
-                            emissiveIntensity={occupied ? 0.4 : 0}
-                        />
-                    </mesh>
-                );
-            })}
-
-            {/* Queue count indicator (small floating number wouldn't work in 3D, use stacked dots) */}
+            {/* Queue count dots */}
             {queueLength > 0 && Array.from({ length: Math.min(queueLength, 5) }).map((_, i) => (
                 <mesh key={`q${i}`} position={[1.3 + i * 0.25, 0.3, 0]}>
                     <sphereGeometry args={[0.08, 6, 6]} />
