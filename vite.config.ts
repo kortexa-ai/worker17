@@ -49,17 +49,31 @@ export default defineConfig({
         rollupOptions: {
             external: [],
             output: {
-                manualChunks: {
-                    "react-vendor": ["react", "react-dom", "react/jsx-runtime"],
-                    "three-core": ["three"],
-                    "three-libs-1": ["@react-three/fiber", "@react-three/drei"],
-                    "three-libs-2": ["@react-three/rapier", "@react-three/xr"],
-                    "ui-libs": [
+                manualChunks(id) {
+                    if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/")) {
+                        return "react-vendor";
+                    }
+                    if (id.includes("/node_modules/three/")) {
+                        return "three-core";
+                    }
+                    if (["@react-three/fiber", "@react-three/drei"].some(
+                        (dependency) => id.includes(`/node_modules/${dependency}/`)
+                    )) {
+                        return "three-libs-1";
+                    }
+                    if (["@react-three/rapier", "@react-three/xr"].some(
+                        (dependency) => id.includes(`/node_modules/${dependency}/`)
+                    )) {
+                        return "three-libs-2";
+                    }
+                    if ([
                         "class-variance-authority",
                         "tailwind-merge",
                         "clsx",
                         "lucide-react",
-                    ],
+                    ].some((dependency) => id.includes(`/node_modules/${dependency}/`))) {
+                        return "ui-libs";
+                    }
                 },
             },
         },

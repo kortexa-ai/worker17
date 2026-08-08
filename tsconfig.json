@@ -13,7 +13,6 @@
         /* Module Resolution */
         "moduleResolution": "bundler",
         "moduleDetection": "force",
-        "baseUrl": ".",
         "rootDir": "./src",
         "outDir": "./dist",
         "paths": {

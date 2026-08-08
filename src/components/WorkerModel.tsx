@@ -3,6 +3,7 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Group } from 'three';
+import type * as THREE from 'three';
 import { type WorkerState, KENNEY_ANIMATIONS } from '../simulation/types';
 import { getWorld } from '../simulation/WorldState';
 
@@ -140,6 +141,3 @@ export function WorkerModel({ workerId, modelIndex, initialState, initialBattery
         </group>
     );
 }
-
-// Need THREE namespace for the material type cast
-import * as THREE from 'three';
