@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-export interface MovementParams {
+interface MovementParams {
     walkStepSize: number;
     rechargeStepSize: number;
     targetDistanceThreshold: number;
@@ -12,7 +12,7 @@ export interface MovementParams {
     batteryRechargeRate: number;
 }
 
-export const DEFAULT_PARAMS: MovementParams = {
+const DEFAULT_PARAMS: MovementParams = {
     walkStepSize: 0.01,
     rechargeStepSize: 0.002,
     targetDistanceThreshold: 0.5,
